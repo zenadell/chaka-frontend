@@ -548,6 +548,7 @@ let botConfig = {
     blockReminderNote: "",
     promptSuggestions: []
 };
+window.botConfig = botConfig;
 
 // --- ✨ [MODIFIED] Full-screen loading modal (Now only for TXT) ---
 function showExportLoadingModal(message = 'Processing...') {
@@ -1318,6 +1319,7 @@ if (DOMElements.voiceSelect) {
     DOMElements.voiceSelect.addEventListener('change', async () => {
         const newVoice = DOMElements.voiceSelect.value;
         botConfig.ttsVoiceId = newVoice;
+        localStorage.setItem('userTtsVoiceId', newVoice); // ✅ [NEW] Local storage fallback
         console.log(`🎙 Voice changed to: ${newVoice}`);
         
         if (state.userId) {
@@ -1329,8 +1331,8 @@ if (DOMElements.voiceSelect) {
                     duration: 3000 
                 });
             } catch (e) {
-                console.error("Failed to save voice preference:", e);
-                showToastNotification({ message: "Failed to save voice setting.", type: 'error' });
+                console.error("Failed to save voice preference to Turso:", e);
+                // We still have localStorage, so the UI will stay on the choice.
             }
         }
     });
@@ -2000,7 +2002,14 @@ function loadConfigLive() {
 
             const ttsKeyEntry = Object.values(botConfig.apiKeys).find(k => k && k.type === 'tts' && k.enabled !== false);
             botConfig.ttsApiKey = ttsKeyEntry ? ttsKeyEntry.key : null;
-            botConfig.ttsVoiceId = ttsKeyEntry ? ttsKeyEntry.voiceId || 'Puck' : 'Puck';
+            
+            // ✅ [FIXED] Only use system default if no user preference is set
+            const savedVoice = localStorage.getItem('userTtsVoiceId');
+            if (savedVoice) {
+                botConfig.ttsVoiceId = savedVoice;
+            } else if (!botConfig.ttsVoiceId || botConfig.ttsVoiceId === 'Puck') {
+                botConfig.ttsVoiceId = ttsKeyEntry ? ttsKeyEntry.voiceId || 'Puck' : 'Puck';
+            }
 
             apiKeyManager.initialize(botConfig.apiKeys);
             if (typeof botConfig.apiKey === 'string') botConfig.apiKey = botConfig.apiKey.trim();
@@ -2366,10 +2375,12 @@ async function populateUserProfile() {
         }
 
         // --- ✅ [NEW] Initialize Voice Dropdown ---
-        if (DOMElements.voiceSelect && userData.ttsVoiceId) {
-            DOMElements.voiceSelect.value = userData.ttsVoiceId;
-            botConfig.ttsVoiceId = userData.ttsVoiceId;
-            console.log(`🤖 Voice preference loaded: ${userData.ttsVoiceId}`);
+        const prefVoice = userData.ttsVoiceId || localStorage.getItem('userTtsVoiceId');
+        if (DOMElements.voiceSelect && prefVoice) {
+            DOMElements.voiceSelect.value = prefVoice;
+            botConfig.ttsVoiceId = prefVoice;
+            localStorage.setItem('userTtsVoiceId', prefVoice); // Sync local storage
+            console.log(`🤖 Voice preference loaded: ${prefVoice}`);
         }
     } catch (error) {
         console.error('populateUserProfile: Failed to load profile data:', error);
