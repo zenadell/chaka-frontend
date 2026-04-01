@@ -221,55 +221,66 @@ const LiveMode = {
     async handleFunctionCall(call) {
         console.log(`🤖 Live API requested Tool Call: ${call.name}`, call.args);
         
-        if (call.name === "search_web") {
-            const query = call.args.query || call.args.query_text;
-            this.updateStatus("SEARCHING WEB...", "yellow");
-            this.addChat(`Searching for: "${query}"`, "user"); // Visual feedback
+        let resultText = "No results found.";
+        const apiBase = window.BACKEND_URL || "";
+        // We use global getAuthHeaders function attached to window
+        const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
 
-            let resultText = "No results found.";
-            try {
-                // We use global getAuthHeaders function attached to window
-                const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
-                const apiBase = window.BACKEND_URL || "";
-                
+        try {
+            if (call.name === "search_web") {
+                const query = call.args.query || call.args.query_text;
+                this.updateStatus("RESEARCHING...", "yellow");
+                this.addChat(`🔍 Researching: "${query}"`, "user");
+
                 const resp = await fetch(`${apiBase}/api/tools/search`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify({ query })
                 });
                 
-                if (!resp.ok) {
-                    const errObj = await resp.json().catch(() => ({}));
-                    throw new Error(errObj.error || "Search API failed");
-                }
+                if (!resp.ok) throw new Error("Search failed");
                 const data = await resp.json();
                 resultText = data.result || "No results found.";
-            } catch (e) {
-                console.error("Tool execution error:", e);
-                resultText = "Error during search: " + e.message;
-            }
-
-            console.log(`✅ Sending Tool Response back to Live API:`, resultText.substring(0, 100) + '...');
-
-            // 🛠 [FIGED] Official Gemini Multimodal Live API uses camelCase toolResponse + functionResponses (plural)
-            const toolResponseMsg = {
-                toolResponse: {
-                    functionResponses: [
-                        {
-                            name: call.name,
-                            id: call.id,
-                            response: { result: resultText }
-                        }
-                    ]
-                }
-            };
-
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                this.socket.send(JSON.stringify(toolResponseMsg));
-                // Add a visual chat marker
                 this.addChat(`✅ Search complete.`, "system");
+            } else if (call.name === "scrape_url") {
+                const url = call.args.url;
+                this.updateStatus("DEEP SCRAPING...", "cyan");
+                this.addChat(`🕷 Scraping: ${url}`, "user");
+
+                const resp = await fetch(`${apiBase}/api/tools/scrape-url`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ url })
+                });
+
+                if (!resp.ok) throw new Error("Scrape failed");
+                const data = await resp.json();
+                resultText = data.result || "Could not extract content.";
+                this.addChat(`✅ Deep Scrape complete.`, "system");
             }
-            this.updateStatus("ONLINE", "#0f0");
+        } catch (e) {
+            console.error("Tool execution error:", e);
+            resultText = `Error during ${call.name}: ${e.message}`;
+        }
+
+        this.updateStatus("ONLINE", "#0f0");
+        console.log(`✅ Sending Tool Response back to Live API:`, resultText.substring(0, 100) + '...');
+
+        // 🛠 [FIXED] Official Gemini Multimodal Live API uses camelCase toolResponse + functionResponses (plural)
+        const toolResponseMsg = {
+            toolResponse: {
+                functionResponses: [
+                    {
+                        name: call.name,
+                        id: call.id,
+                        response: { result: resultText }
+                    }
+                ]
+            }
+        };
+
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify(toolResponseMsg));
         }
     },
 
