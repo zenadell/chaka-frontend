@@ -177,7 +177,9 @@ const LiveMode = {
         };
 
         this.socket.onmessage = async (event) => {
-            let data = JSON.parse(event.data instanceof Blob ? await event.data.text() : event.data);
+            let messageText = event.data instanceof Blob ? await event.data.text() : event.data;
+            if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText); // Log small control/text messages
+            let data = JSON.parse(messageText);
 
             // Handle Interruptions from Server
             if (data.serverContent?.interrupted) {
