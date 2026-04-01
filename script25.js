@@ -13,6 +13,7 @@ async function getAuthHeaders() {
         'Authorization': `Bearer ${token}`
     };
 }
+window.getAuthHeaders = getAuthHeaders; // ✅ Exposing for external scripts (like LiveMode)
 
 const firebaseConfig = {
     apiKey: "AIzaSyCBBm3pHDVgUYs2BTzwVwtTwC-cOAFjKWo",

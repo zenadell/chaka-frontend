@@ -156,6 +156,7 @@ const LiveMode = {
                 setup: {
                     model: this.config.model,
                     system_instruction: { parts: [{ text: this.config.systemInstruction }] },
+                    tools: this.config.tools || [],
                     generation_config: {
                         response_modalities: ["AUDIO"],
                         speech_config: {
@@ -187,6 +188,9 @@ const LiveMode = {
 
             if (data.serverContent?.modelTurn?.parts) {
                 for (const part of data.serverContent.modelTurn.parts) {
+                    if (part.functionCall) {
+                        this.handleFunctionCall(part.functionCall);
+                    }
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
                     }
@@ -206,6 +210,61 @@ const LiveMode = {
             console.warn("🔌 WebSocket Closed:", e.code, e.reason);
             this.disconnect();
         };
+    },
+
+    async handleFunctionCall(call) {
+        console.log(`🤖 Live API requested Tool Call: ${call.name}`, call.args);
+        
+        if (call.name === "search_web") {
+            const query = call.args.query || call.args.query_text;
+            this.updateStatus("SEARCHING WEB...", "yellow");
+            this.addChat(`Searching for: "${query}"`, "user"); // Visual feedback
+
+            let resultText = "No results found.";
+            try {
+                // We use global getAuthHeaders function attached to window
+                const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
+                const apiBase = window.BACKEND_URL || "";
+                
+                const resp = await fetch(`${apiBase}/api/tools/search`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ query })
+                });
+                
+                if (!resp.ok) {
+                    const errObj = await resp.json().catch(() => ({}));
+                    throw new Error(errObj.error || "Search API failed");
+                }
+                const data = await resp.json();
+                resultText = data.result || "No results found.";
+            } catch (e) {
+                console.error("Tool execution error:", e);
+                resultText = "Error during search: " + e.message;
+            }
+
+            console.log(`✅ Sending Tool Response back to Live API:`, resultText.substring(0, 100) + '...');
+
+            // Gemini Multimodal Live API Tool response format
+            const toolResponseMsg = {
+                toolResponse: {
+                    functionResponses: [
+                        {
+                            name: call.name,
+                            id: call.id,
+                            response: { result: resultText }
+                        }
+                    ]
+                }
+            };
+
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                this.socket.send(JSON.stringify(toolResponseMsg));
+                // Add a visual chat marker
+                this.addChat(`✅ Search complete.`, "system");
+            }
+            this.updateStatus("ONLINE", "#0f0");
+        }
     },
 
     disconnect() {
