@@ -1224,6 +1224,127 @@ button {
   }
 }
 
+/* --- ⚙️ USER SETTINGS POPUP --- */
+#user-settings-popup {
+  position: absolute;
+  bottom: 80px;
+  left: 20px;
+  width: 260px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  opacity: 0;
+  transform: translateY(10px);
+  visibility: hidden;
+  transition: all var(--transition-fast);
+}
+
+#user-settings-popup.active {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.popup-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.popup-action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.popup-action-btn:hover {
+  background: var(--surface);
+}
+
+.popup-action-btn svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+}
+
+.popup-action-btn.danger {
+  color: #ef4444;
+}
+
+.popup-action-btn.danger svg {
+  color: #ef4444;
+}
+
+.popup-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.5rem 0;
+}
+
+/* Voice Selection Section */
+.popup-section {
+  padding: 0.5rem;
+}
+
+.popup-select-wrapper {
+  position: relative;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.popup-select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.9rem;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.popup-select:focus {
+  border-color: var(--accent);
+}
+
+/* Custom arrow for select */
+.popup-select-wrapper::after {
+  content: '▼';
+  font-size: 0.6rem;
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
 /* --- ACTIONS BUTTON & POPUP (UNCHANGED) --- */
 #composer-actions-btn {
   flex-shrink: 0;

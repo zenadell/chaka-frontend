@@ -84,7 +84,8 @@ const LiveMode = {
             const sessionId = window.state?.sessionId || "";
 
             const apiBase = window.BACKEND_URL || "";
-            const url = `${apiBase}/api/tools/live/config?persona=${encodeURIComponent(persona)}&userId=${encodeURIComponent(userId)}&sessionId=${encodeURIComponent(sessionId)}`;
+            const voiceId = window.botConfig?.ttsVoiceId || "Puck";
+            const url = `${apiBase}/api/tools/live/config?persona=${encodeURIComponent(persona)}&userId=${encodeURIComponent(userId)}&sessionId=${encodeURIComponent(sessionId)}&voiceId=${encodeURIComponent(voiceId)}`;
             const resp = await fetch(url, { headers });
             if (!resp.ok) throw new Error("Failed to fetch Live Mode configuration");
 

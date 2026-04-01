@@ -345,6 +345,7 @@ const DOMElements = {
     statusRow: document.getElementById('status-row'),
     themeToggle: document.getElementById('theme-toggle'), // ID is same, but moved
     themeIcon: document.getElementById('theme-icon-popup'), // ✅ [MODIFIED] ID updated to new popup icon
+    voiceSelect: document.getElementById('voice-selection-dropdown'), // ✅ [NEW] Voice Selection Dropdown
     apiStatusRow: document.getElementById('api-status-row'),
     personalityPreviewModal: document.getElementById('personality-preview-modal'),
     // ... (rest of DOMElements)
@@ -1312,6 +1313,30 @@ const applyTheme = (theme) => {
 // Note: The event listener below is still correct as the ID #theme-toggle is unchanged.
 DOMElements.themeToggle.addEventListener('click', () => { state.currentTheme = state.currentTheme === 'light' ? 'dark' : 'light'; applyTheme(state.currentTheme); });
 
+// --- ✅ [NEW] Voice Selection Listener ---
+if (DOMElements.voiceSelect) {
+    DOMElements.voiceSelect.addEventListener('change', async () => {
+        const newVoice = DOMElements.voiceSelect.value;
+        botConfig.ttsVoiceId = newVoice;
+        console.log(`🎙 Voice changed to: ${newVoice}`);
+        
+        if (state.userId) {
+            try {
+                await window.tursoClient.updateUser(state.userId, { ttsVoiceId: newVoice });
+                showToastNotification({ 
+                    message: `Voice updated to ${newVoice}`, 
+                    type: 'success', 
+                    duration: 3000 
+                });
+            } catch (e) {
+                console.error("Failed to save voice preference:", e);
+                showToastNotification({ message: "Failed to save voice setting.", type: 'error' });
+            }
+        }
+    });
+}
+
+
 const showTypingIndicator = (show) => {
     let indicator = DOMElements.chatMessages.querySelector('.typing-indicator');
     if (show && !indicator) {
@@ -1464,7 +1489,10 @@ async function autoPlayTts(rawText) {
         const response = await fetch(`${APP_CONFIG.BACKEND_URL}/api/tools/tts-raw`, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify({ text: cleanText })
+            body: JSON.stringify({ 
+                text: cleanText,
+                voiceId: botConfig.ttsVoiceId
+            })
         });
         const data = await response.json();
 
@@ -1551,7 +1579,8 @@ async function playTextAsSpeech(text, buttonElement) {
             method: 'POST',
             headers: headers, // <--- Use the variable we just got
             body: JSON.stringify({
-                text: text.replace(/!\[[^\]]*\]\([^)]*\)/g, '') // Remove image markdown
+                text: text.replace(/!\[[^\]]*\]\([^)]*\)/g, ''), // Remove image markdown
+                voiceId: botConfig.ttsVoiceId
             }),
             signal: fetchController?.signal
         });
@@ -2325,7 +2354,7 @@ async function populateUserProfile() {
                 `<span class="plan-badge ${badgeClass}">${plan}</span>`;
         }
 
-        if (DOMElements.userProfileJoined) {
+                if (DOMElements.userProfileJoined) {
             const createdAt = userData.createdAt ? new Date(userData.createdAt) : null;
             if (createdAt && !isNaN(createdAt)) {
                 const formatted = createdAt.toLocaleDateString('en-US', {
@@ -2334,6 +2363,13 @@ async function populateUserProfile() {
                 });
                 DOMElements.userProfileJoined.textContent = formatted;
             }
+        }
+
+        // --- ✅ [NEW] Initialize Voice Dropdown ---
+        if (DOMElements.voiceSelect && userData.ttsVoiceId) {
+            DOMElements.voiceSelect.value = userData.ttsVoiceId;
+            botConfig.ttsVoiceId = userData.ttsVoiceId;
+            console.log(`🤖 Voice preference loaded: ${userData.ttsVoiceId}`);
         }
     } catch (error) {
         console.error('populateUserProfile: Failed to load profile data:', error);
