@@ -188,8 +188,10 @@ const LiveMode = {
 
             if (data.serverContent?.modelTurn?.parts) {
                 for (const part of data.serverContent.modelTurn.parts) {
-                    if (part.functionCall) {
-                        this.handleFunctionCall(part.functionCall);
+                    // Check for both camelCase and snake_case (official)
+                    const call = part.functionCall || part.function_call;
+                    if (call) {
+                        this.handleFunctionCall(call);
                     }
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
@@ -245,10 +247,10 @@ const LiveMode = {
 
             console.log(`✅ Sending Tool Response back to Live API:`, resultText.substring(0, 100) + '...');
 
-            // Gemini Multimodal Live API Tool response format
+            // 🛠 [FIGED] Official Gemini Multimodal Live API Tool response format
             const toolResponseMsg = {
-                toolResponse: {
-                    functionResponses: [
+                tool_response: {
+                    function_responses: [
                         {
                             name: call.name,
                             id: call.id,
