@@ -181,6 +181,13 @@ const LiveMode = {
             if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText); // Log small control/text messages
             let data = JSON.parse(messageText);
 
+            // 🛠 [FIXED] Official Gemini Multimodal Live API Tool Call is at TOP LEVEL
+            const toolCall = data.toolCall || data.tool_call;
+            if (toolCall && toolCall.functionCalls) {
+                toolCall.functionCalls.forEach(call => this.handleFunctionCall(call));
+                return; // Early return for tool calls
+            }
+
             // Handle Interruptions from Server
             if (data.serverContent?.interrupted) {
                 console.log("🛑 AI Interrupted by User");
@@ -190,11 +197,6 @@ const LiveMode = {
 
             if (data.serverContent?.modelTurn?.parts) {
                 for (const part of data.serverContent.modelTurn.parts) {
-                    // Check for both camelCase and snake_case (official)
-                    const call = part.functionCall || part.function_call;
-                    if (call) {
-                        this.handleFunctionCall(call);
-                    }
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
                     }
@@ -249,10 +251,10 @@ const LiveMode = {
 
             console.log(`✅ Sending Tool Response back to Live API:`, resultText.substring(0, 100) + '...');
 
-            // 🛠 [FIGED] Official Gemini Multimodal Live API Tool response format
+            // 🛠 [FIGED] Official Gemini Multimodal Live API uses camelCase toolResponse + functionResponses (plural)
             const toolResponseMsg = {
-                tool_response: {
-                    function_responses: [
+                toolResponse: {
+                    functionResponses: [
                         {
                             name: call.name,
                             id: call.id,
