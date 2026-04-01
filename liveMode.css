@@ -1,0 +1,313 @@
+/* liveMode.css - Immersive HUD/Orb UI for Chaka V4.9 */
+:root {
+    --neon: #ff0055;
+    --neon-blue: #00f3ff;
+    --bg-dark: #0a0a0b;
+    --glass-bg: rgba(15, 15, 17, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
+#live-mode-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-dark);
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(20px);
+}
+
+#live-mode-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* Background Effects */
+#live-mode-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255, 0, 85, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+    animation: pulseBg 8s infinite alternate;
+}
+
+@keyframes pulseBg {
+    0% { opacity: 0.3; transform: scale(1); }
+    100% { opacity: 0.7; transform: scale(1.2); }
+}
+
+/* Header HUD */
+.live-header {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+    z-index: 10;
+}
+
+.live-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--glass-bg);
+    padding: 10px 20px;
+    border-radius: 100px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    background: #333;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    transition: all 0.4s ease;
+}
+
+.dot.active {
+    background: var(--neon-blue);
+    box-shadow: 0 0 15px var(--neon-blue);
+    animation: dotPulse 2s infinite;
+}
+
+@keyframes dotPulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+#live-status-text {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #aaa;
+    text-transform: uppercase;
+}
+
+.live-title {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #fff;
+    opacity: 0.7;
+    margin-right: -40px; /* Center alignment hack */
+}
+
+.live-close-btn {
+    width: 44px;
+    height: 44px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 20;
+}
+
+.live-close-btn:hover {
+    background: rgba(255, 0, 85, 0.1);
+    border-color: var(--neon);
+    color: var(--neon);
+    transform: rotate(90deg);
+}
+
+/* Central Visualizer Section */
+.live-central {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 5;
+}
+
+.orb-container {
+    position: relative;
+    width: 400px;
+    height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#live-visualizer {
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+}
+
+.orb-pulsar {
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, var(--neon-blue) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0.3;
+    animation: orbFloat 4s infinite alternate ease-in-out;
+}
+
+@keyframes orbFloat {
+    0% { transform: scale(1) translateY(0); opacity: 0.2; }
+    100% { transform: scale(1.2) translateY(-20px); opacity: 0.4; }
+}
+
+/* Chat Log Layer */
+.live-chat-log {
+    position: absolute;
+    bottom: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    max-width: 90%;
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 15px;
+    mask-image: linear-gradient(to top, black 80%, transparent);
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 10;
+}
+
+.live-msg {
+    padding: 12px 24px;
+    border-radius: 20px;
+    font-size: 15px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(5px);
+    align-self: center;
+    text-align: center;
+    max-width: 80%;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: msgIn 0.5s forwards;
+    box-shadow: var(--shadow);
+}
+
+.live-msg.ai { color: #fff; font-weight: 500; }
+.live-msg.user { color: var(--neon-blue); font-weight: 600; }
+
+@keyframes msgIn {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Footer Controls */
+.live-footer {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 20px;
+    background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+    z-index: 15;
+}
+
+.live-controls {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    background: var(--glass-bg);
+    padding: 15px 40px;
+    border-radius: 100px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow);
+}
+
+.live-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.live-btn svg { width: 24px; height: 24px; }
+
+.live-btn:hover {
+    transform: scale(1.1);
+    background: rgba(255,255,255,0.1);
+}
+
+.live-btn.mic.recording {
+    background: var(--neon);
+    border-color: var(--neon);
+    box-shadow: 0 0 20px var(--neon);
+    animation: micPulse 1.5s infinite;
+}
+
+@keyframes micPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.live-btn.connect {
+    width: auto;
+    padding: 0 30px;
+    border-radius: 100px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 13px;
+    background: var(--neon-blue);
+    border-color: var(--neon-blue);
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+}
+
+.live-btn.connect:hover {
+    background: #fff;
+    box-shadow: 0 0 25px #fff;
+}
+
+/* Volume Meter */
+.live-vol-meter {
+    width: 80px;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    display: none;
+}
+
+.live-vol-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--neon-blue);
+    box-shadow: 0 0 10px var(--neon-blue);
+    transition: width 0.1s ease;
+}
+
+.live-mic-status {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #555;
+    text-transform: uppercase;
+}

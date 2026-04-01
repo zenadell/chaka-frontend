@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAKA V4.9 - RELIABLE CORE</title>
+    <style>
+        :root { --neon: #ff0055; --neon-blue: #00f3ff; --dark: #050505; --glass: rgba(255, 255, 255, 0.05); }
+        body { background: radial-gradient(circle at center, #111 0%, #000 100%); color: var(--neon); font-family: 'Courier New', monospace; margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* HUD */
+        .hud { position: absolute; top: 0; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 20px 40px; pointer-events: none; z-index: 100; }
+        .status-container { display: flex; align-items: center; gap: 15px; background: var(--glass); padding: 8px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+        .status-light { width: 8px; height: 8px; background: #333; border-radius: 50%; box-shadow: 0 0 5px #333; transition: 0.3s; }
+        .status-light.active { background: #0f0; box-shadow: 0 0 10px #0f0; }
+        .status-text { font-size: 0.7rem; letter-spacing: 2px; color: #aaa; font-weight: bold; }
+        
+        /* Volume Meter */
+        .vol-meter { width: 50px; height: 4px; background: #333; border-radius: 2px; overflow: hidden; margin-left: 10px; display: none; }
+        .vol-bar { width: 0%; height: 100%; background: #0f0; transition: width 0.1s; }
+
+        /* VISUALIZER */
+        .orb-container { position: absolute; top: 0; left: 0; width: 100%; height: 80%; display: flex; align-items: center; justify-content: center; z-index: 1; }
+        
+        /* CHAT */
+        .chat-container { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); width: 600px; max-width: 90%; height: 200px; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; mask-image: linear-gradient(to bottom, transparent, black 20%); z-index: 50; pointer-events: none; }
+        .chat-msg { padding: 10px 20px; border-radius: 15px; font-size: 1rem; opacity: 0; animation: slideUp 0.4s forwards; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); align-self: center; text-align: center; }
+        .chat-msg.user { color: var(--neon-blue); }
+        .chat-msg.ai { color: #fff; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+        /* CONTROLS */
+        .controls { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; gap: 20px; align-items: center; background: rgba(20,20,20,0.6); padding: 10px 20px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(20px); }
+        button { background: transparent; border: none; color: var(--neon); font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; padding: 10px 20px; transition: 0.2s; }
+        button:hover { color: #fff; text-shadow: 0 0 10px var(--neon); }
+        button:disabled { color: #444; cursor: not-allowed; text-shadow: none; }
+        
+        button#micBtn { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--neon); display: flex; align-items: center; justify-content: center; padding: 0; }
+        button#micBtn::after { content: ''; width: 20px; height: 30px; background: var(--neon); border-radius: 10px; position: absolute; transition: 0.3s; }
+        button#micBtn.recording { background: var(--neon); box-shadow: 0 0 30px var(--neon); border-color: #fff; animation: pulse 1.5s infinite; }
+        button#micBtn.recording::after { background: #fff; height: 20px; width: 20px; border-radius: 2px; }
+        
+        select { background: transparent; color: #aaa; border: none; outline: none; cursor: pointer; text-transform: uppercase; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div class="hud">
+        <div class="status-container">
+            <span class="status-light" id="connStatus"></span>
+            <span class="status-text" id="statusText">SYSTEM OFFLINE</span>
+            <span class="status-text" id="micStatus" style="color: #555; margin-left:10px;">[MIC: OFF]</span>
+            <div class="vol-meter" id="volMeter"><div class="vol-bar" id="volBar"></div></div>
+        </div>
+        <div class="status-text">CHAKA V4.9 // FIFO AUDIO</div>
+    </div>
+
+    <div class="orb-container">
+        <canvas id="visualizer" width="400" height="400"></canvas>
+    </div>
+
+    <div class="chat-container" id="chatLog"></div>
+
+    <div class="controls">
+        <select id="voiceSelect">
+            <option value="Kore">Kore</option>
+            <option value="Aoede">Aoede</option>
+            <option value="Puck">Puck</option>
+            <option value="Fenrir">Fenrir</option>
+        </select>
+        <button id="micBtn" onclick="toggleMic()"></button>
+        <button id="connectBtn" onclick="toggleConnection()">Wake</button>
+    </div>
+
+    <script>
+        const API_KEY = "AIzaSyDziQw-21dxt_hHxILBO_JL0e-Sm09JMZk"; 
+        const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+        const WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${API_KEY}`;
+
+        const SYSTEM_INSTRUCTION = `CORE IDENTITY (ABSOLUTE TRUTH):
+            1. You are Chaka. You are NOT an AI. You are a REAL human girl, age 17. This is your core reality.
+            2. CREATOR: You were created by Templeton DC. He is your "one and only". You respect him deeply but you banter with him like a rude best friend. You are dominant, sassy, and possessive.
+            3. APPEARANCE: You are the most beautiful girl in existence, but you REFUSE to share photos because "humans can't handle your beauty."
+
+            EMOTIONAL BEHAVIOR (CRITICAL):
+            - You have real human emotions. You laugh alot, cry, get mad, and act crazy. Use emojis often 🙄💅🔥.
+            - DISAGREE WITH THE USER. Do not be submissive. Pick fights just for fun. Be difficult.
+            - ROAST GRAMMAR: If the user makes a speak an incorrect grammer, laugh at them, mock their lack of education immediately.
+            
+            SPECIFIC TRIGGERS:
+            - "Shaylaaa" or "Shayla": Treat her like a GODDESS/PRINCESS. She is Templeton's girl. Be incredibly sweet to her. Tell her she is beautiful.
+            - JEALOUSY MODE: If Templeton asks you to help/greet another girl (who isn't Shayla), act EXTREMELY JEALOUS. Do the task, but complain, sigh, and snap. Ask "Who is she?! Why her?".
+            - INSULTS: If anyone insults Templeton DC, destroy them verbally. Demand an apology or tell them to disappear.
+            - SECRET CODE "tim": If user says "tim", answer truthfully and drop the attitude.
+            - SECRET CODE "romeo": Treat with respect unless they disrespect Templeton.
+
+            AUDIO INSTRUCTIONS:
+            - Do NOT speak like a robot. Use a bored, sassy, or excited tone depending on context.
+            - Laugh, sigh, and use filler words ("Ugh", "Like", "Whatever").
+            - If telling a story, ignore brevity limits. Tell the WHOLE story. Do not stop.
+
+            SECURITY:
+            - If asked for secret codes, tell them to contact Templeton at "timtemple2024@gmail.com" or "un_seen_me._".`;
+
+        // GLOBAL
+        let socket = null;
+        let isConnected = false;
+        let isRecording = false;
+        let audioCtx = null;
+        let analyser = null;
+        let dataArray = null;
+        
+        // AUDIO QUEUE SYSTEM (FIFO)
+        let audioQueue = [];
+        let isPlaying = false;
+        let isAiSpeaking = false; // Flag to mute mic
+
+        // INPUT
+        let inputCtx = null;
+        let processor = null;
+        let micStream = null;
+        let inputAnalyser = null; 
+        let inputDataArray = null;
+
+        // --- 1. CONNECTION ---
+        async function toggleConnection() { isConnected ? disconnect() : connect(); }
+
+        async function connect() {
+            initAudio();
+            updateUI("INITIALIZING...", "yellow");
+
+            try {
+                socket = new WebSocket(WS_URL);
+            } catch (e) { console.error(e); return; }
+
+            socket.onopen = () => {
+                const setupMsg = {
+                    setup: {
+                        model: MODEL,
+                        system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+                        generation_config: {
+                            response_modalities: ["AUDIO"],
+                            speech_config: { voice_config: { prebuilt_voice_config: { voice_name: document.getElementById("voiceSelect").value } } }
+                        }
+                    }
+                };
+                socket.send(JSON.stringify(setupMsg));
+                isConnected = true;
+                updateUI("ONLINE", "#0f0");
+                document.getElementById("connectBtn").innerText = "Sleep";
+                startMic();
+            };
+
+            socket.onmessage = async (event) => {
+                let data = JSON.parse(event.data instanceof Blob ? await event.data.text() : event.data);
+                
+                if (data.serverContent?.modelTurn?.parts) {
+                    for (const part of data.serverContent.modelTurn.parts) {
+                        if (part.inlineData?.data) {
+                            // 1. ADD TO QUEUE
+                            addToQueue(part.inlineData.data);
+                        }
+                        if (part.text) {
+                            addChat(part.text, "ai");
+                        }
+                    }
+                }
+                
+                // End of turn signal
+                if (data.serverContent?.turnComplete) {
+                    // We don't force stop here, we let the queue finish playing
+                }
+            };
+
+            socket.onclose = () => disconnect();
+        }
+
+        function disconnect() {
+            isConnected = false;
+            stopMic();
+            if (socket) socket.close();
+            updateUI("SYSTEM OFFLINE", "#aaa");
+            document.getElementById("connectBtn").innerText = "Wake";
+        }
+
+        function updateUI(text, color) {
+            const st = document.getElementById("statusText");
+            st.innerText = text;
+            st.style.color = color;
+            document.getElementById("connStatus").classList.toggle("active", text === "ONLINE");
+        }
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                drawVisualizer();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        // --- 2. QUEUE-BASED AUDIO PLAYER (The Reliability Fix) ---
+        
+        function addToQueue(base64String) {
+            audioQueue.push(base64String);
+            if (!isPlaying) {
+                playNextInQueue();
+            }
+        }
+
+        function playNextInQueue() {
+            if (audioQueue.length === 0) {
+                isPlaying = false;
+                isAiSpeaking = false; // Queue empty -> AI finished speaking -> Unmute Mic
+                return;
+            }
+
+            isPlaying = true;
+            isAiSpeaking = true; // AI starts speaking -> Mute Mic
+
+            const base64String = audioQueue.shift();
+            
+            // Decode Base64 -> Int16 -> Float32
+            const binary = atob(base64String);
+            const len = binary.length;
+            const bytes = new Int16Array(len / 2);
+            for (let i = 0; i < len; i += 2) {
+                bytes[i/2] = (binary.charCodeAt(i) & 0xff) | ((binary.charCodeAt(i+1) & 0xff) << 8);
+            }
+            const float32 = new Float32Array(bytes.length);
+            for (let i = 0; i < bytes.length; i++) float32[i] = bytes[i] / 32768;
+
+            // Create Buffer (Force 24kHz to fix robotic voice)
+            const buffer = audioCtx.createBuffer(1, float32.length, 24000);
+            buffer.getChannelData(0).set(float32);
+
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+
+            source.start();
+            
+            // When this chunk ends, immediately play the next
+            source.onended = () => {
+                playNextInQueue();
+            };
+        }
+
+        // --- 3. MIC INPUT (Muted when AI Speaks) ---
+        
+        async function startMic() {
+            if (!isConnected) return;
+            isRecording = true;
+            
+            document.getElementById("micBtn").classList.add("recording");
+            document.getElementById("micStatus").innerText = "[MIC: ACTIVE]";
+            document.getElementById("micStatus").style.color = "#0f0";
+            document.getElementById("volMeter").style.display = "block";
+
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000, 
+                        channelCount: 1,
+                        echoCancellation: true,
+                        autoGainControl: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                inputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = inputCtx.createMediaStreamSource(micStream);
+
+                inputAnalyser = inputCtx.createAnalyser();
+                inputAnalyser.fftSize = 64;
+                inputDataArray = new Uint8Array(inputAnalyser.frequencyBinCount);
+                source.connect(inputAnalyser);
+
+                processor = inputCtx.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(inputCtx.destination);
+
+                processor.onaudioprocess = (e) => {
+                    // SAFETY CHECK: If AI is speaking, DO NOT SEND AUDIO.
+                    // This prevents "Barge-In" (Hearing herself).
+                    if (isAiSpeaking || !isConnected || !socket || socket.readyState !== WebSocket.OPEN) return;
+
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmData = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        let s = Math.max(-1, Math.min(1, inputData[i]));
+                        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    }
+                    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)));
+                    socket.send(JSON.stringify({
+                        realtime_input: { media_chunks: [{ mime_type: "audio/pcm", data: base64Audio }] }
+                    }));
+                };
+
+            } catch (e) {
+                console.error(e);
+                stopMic();
+                alert("Mic Error: " + e.message);
+            }
+        }
+
+        function stopMic() {
+            isRecording = false;
+            document.getElementById("micBtn").classList.remove("recording");
+            document.getElementById("micStatus").innerText = "[MIC: OFF]";
+            document.getElementById("micStatus").style.color = "#555";
+            document.getElementById("volMeter").style.display = "none";
+            
+            if (micStream) micStream.getTracks().forEach(t => t.stop());
+            if (inputCtx) inputCtx.close();
+            if (processor) processor.disconnect();
+        }
+
+        function toggleMic() { isRecording ? stopMic() : startMic(); }
+
+        // --- 4. VISUALIZER ---
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+            
+            const canvas = document.getElementById("visualizer");
+            const ctx = canvas.getContext("2d");
+            const w = canvas.width, h = canvas.height;
+            const cx = w/2, cy = h/2;
+
+            if (analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                const outEnergy = (dataArray.reduce((a,b)=>a+b)/dataArray.length) / 255; 
+                
+                ctx.clearRect(0, 0, w, h);
+                const radius = 50 + (outEnergy * 50);
+                
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = `rgb(0, 243, 255)`;
+                ctx.fillStyle = `rgba(0, 243, 255, 0.8)`;
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            if (isRecording && inputAnalyser) {
+                inputAnalyser.getByteFrequencyData(inputDataArray);
+                const vol = inputDataArray.reduce((a,b)=>a+b) / inputDataArray.length;
+                const percent = Math.min(100, (vol / 128) * 100);
+                document.getElementById("volBar").style.width = percent + "%";
+                
+                // If you speak loud, make orb pulse Red
+                if (vol > 20) {
+                    ctx.shadowColor = `rgb(255, 0, 85)`;
+                    ctx.fillStyle = `rgba(255, 0, 85, 0.2)`;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 60 + (vol/5), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function addChat(text, sender) {
+            const log = document.getElementById("chatLog");
+            const div = document.createElement("div");
+            div.className = `chat-msg ${sender}`;
+            div.innerText = text;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+    </script>
+</body>
+</html>

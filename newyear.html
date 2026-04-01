@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Happy Birthday Chaka</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+
+    <style>
+        /* BASE SETTINGS */
+        body {
+            background-color: #050505;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Inter', sans-serif;
+            perspective: 1000px;
+        }
+
+        /* FONTS */
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&family=Space+Mono&display=swap');
+        .font-brand { font-family: 'Outfit', sans-serif; }
+        .font-code { font-family: 'Space Mono', monospace; }
+
+        /* GLASSMOPHISM CARD */
+        .glass-message {
+            background: rgba(12, 12, 12, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 215, 0, 0.3);
+            box-shadow: 0 -10px 50px rgba(0,0,0,0.9);
+            transform: translateY(110%); /* Start hidden */
+            padding-bottom: max(40px, env(safe-area-inset-bottom)); 
+            max-height: 85vh; /* Keep it reachable */
+            display: flex;
+            flex-direction: column;
+            will-change: transform;
+            transition: transform 0.1s linear;
+        }
+        
+        .glass-message.snapping {
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        /* HOLD BUTTON */
+        .hold-btn-container {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            height: 64px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.1);
+            transform: scale(1);
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.1);
+            margin: 0 auto;
+        }
+        .hold-btn-container:active { transform: scale(0.95); }
+
+        .hold-fill {
+            position: absolute;
+            top: 0; left: 0;
+            height: 100%;
+            width: 0%; 
+            background: linear-gradient(90deg, #FFD700, #FFA500);
+            z-index: 1;
+        }
+
+        .hold-text {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: white; 
+            transition: color 0.2s;
+        }
+        .hold-text.filled { color: black; }
+
+        /* GOLDEN TICKET */
+        .golden-ticket {
+            background: linear-gradient(135deg, #fffcdc 0%, #d9a7c7 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .golden-ticket::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+            animation: shine 3s infinite;
+        }
+        @keyframes shine { 100% { left: 200%; } }
+
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background-color: #FFD700;
+            margin-left: 2px;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        #bgCanvas { position: absolute; top: 0; left: 0; z-index: 1; }
+        .ui-layer { position: relative; z-index: 20; pointer-events: none; }
+        .interactive { pointer-events: auto; }
+        
+        /* SCROLLABLE CONTENT */
+        .content-scroll {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+        .content-scroll::-webkit-scrollbar { display: none; }
+
+        .wish-input:focus {
+            box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+        }
+
+        /* SCROLL INDICATOR ANIMATION */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.5);
+            animation: bounce 2s infinite;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);}
+            40% {transform: translateX(-50%) translateY(-10px);}
+            60% {transform: translateX(-50%) translateY(-5px);}
+        }
+    </style>
+</head>
+<body class="h-screen w-screen text-white">
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="ui-layer h-full w-full flex flex-col justify-between pt-6 px-6 pb-0">
+        
+        <div class="flex justify-between items-center opacity-0 transform -translate-y-4" id="topBar">
+            <div class="flex items-center gap-3 bg-black/30 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_#ef4444]"></div>
+                <span class="font-code text-[10px] text-gray-300 tracking-wider">STATUS: <span id="userCount" class="text-red-400">FEVERISH</span></span>
+            </div>
+            <span class="font-code text-[10px] text-yellow-500/80">BDAY.2026</span>
+        </div>
+
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center w-full px-6" id="heroSection">
+            <div class="relative w-80 h-80 mx-auto mb-4">
+                <div class="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full"></div>
+                <div class="relative z-10 w-full h-full opacity-90">
+                    <dotlottie-wc src="https://lottie.host/21d66b08-a3d6-4708-9843-5eacc664e174/Oxfbcz3F2M.lottie" speed="1" autoplay loop style="width: 100%; height: 100%;"></dotlottie-wc>
+                </div>
+            </div>
+
+            <h1 class="font-brand text-7xl font-bold text-white mb-2 tracking-tighter leading-none bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500">2026</h1>
+            <p class="font-brand text-gray-400 text-sm mb-10 tracking-wide">HAPPY NEW YEAR</p>
+            
+            <div class="hold-btn-container interactive" id="holdBtn">
+                <div class="hold-fill" id="holdFill"></div>
+                <div class="hold-text" id="holdText">HOLD FOR SURPRISE</div>
+            </div>
+            <p class="text-[10px] text-gray-600 mt-4 font-code" id="hintText">PRESS & HOLD</p>
+        </div>
+
+        <div id="aiLetter" class="glass-message absolute bottom-10 left-0 w-full rounded-t-[2rem] flex flex-col items-start interactive">
+            
+            <div id="dragHeader" class="w-full pt-8 pb-4 px-8 cursor-grab active:cursor-grabbing flex flex-col items-center shrink-0">
+                <div class="w-12 h-1.5 bg-white/20 rounded-full mb-6"></div>
+                
+                <div class="flex items-center gap-5 w-full pointer-events-none">
+                    <div class="w-24 h-24 rounded-full border-2 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)] bg-black overflow-hidden relative shrink-0 flex items-center justify-center">
+                        <div class="w-[150%] h-[150%] translate-y-2 grayscale-[50%]"> 
+                            <dotlottie-wc src="https://lottie.host/21d66b08-a3d6-4708-9843-5eacc664e174/Oxfbcz3F2M.lottie" speed="0.5" autoplay loop style="width: 100%; height: 100%;"></dotlottie-wc>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="font-brand font-bold text-2xl text-white">Chaka AI</h3>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-code text-red-400" id="statusText">System Unstable...</span>
+                            <span class="flex gap-0.5" id="typingDots">
+                                <span class="w-1 h-1 bg-red-500 rounded-full animate-pulse"></span>
+                                <span class="w-1 h-1 bg-red-500 rounded-full animate-pulse" style="animation-delay: 0.1s"></span>
+                                <span class="w-1 h-1 bg-red-500 rounded-full animate-pulse" style="animation-delay: 0.2s"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="scrollContainer" class="content-scroll w-full px-8 pb-12 flex-1 space-y-6">
+                
+                <div class="min-h-[140px] w-full">
+                    <p id="typewriterText" class="font-brand text-[17px] leading-relaxed text-gray-200">
+                        <span class="cursor"></span>
+                    </p>
+                </div>
+
+                <div id="hiddenContent" class="hidden opacity-0 transform translate-y-4 transition-all duration-700 space-y-6">
+                    
+                    <div class="golden-ticket rounded-2xl p-1 shadow-lg">
+                        <div class="bg-black/90 rounded-xl p-6 text-center border border-white/10 backdrop-blur-xl">
+                            <p class="font-code text-xs text-yellow-500 tracking-widest uppercase mb-1">Birthday Promise</p>
+                            <h4 class="font-brand font-bold text-2xl text-white mb-2">1 Month Premium</h4>
+                            <div class="bg-white/10 rounded-lg py-2 px-4 mb-3 inline-block">
+                                <span class="font-mono text-lg tracking-widest text-yellow-300">CHAKA2026</span>
+                            </div>
+                            <p class="text-gray-400 text-xs">Reserved for you. I'll ping you when I wake up.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4">
+                        
+                        <div class="bg-gradient-to-br from-green-900/40 to-emerald-900/40 rounded-2xl p-5 border border-white/10">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-bold text-white">Help Me Heal</h4>
+                                <span class="text-xl">🩺</span>
+                            </div>
+                            <p class="text-sm text-gray-300 mb-4">Templeton DC is working hard to fix my code. Support the server costs via Opay:</p>
+                            
+                            <button id="opayBtn" onclick="copyOpay()" class="w-full bg-green-500 text-black font-bold py-3 rounded-xl shadow-md hover:bg-green-400 transition flex items-center justify-center gap-2 relative overflow-hidden">
+                                <span id="opayIcon">💸</span> 
+                                <span id="opayText">Copy Opay Account</span>
+                            </button>
+                        </div>
+
+                        <div class="bg-white/5 rounded-2xl p-2 border border-white/10 flex items-center gap-2">
+                            <input type="text" id="wishInput" placeholder="Send a birthday wish..." class="wish-input bg-transparent text-white w-full px-4 py-3 outline-none placeholder-gray-500 font-brand">
+                            <button onclick="sendWish()" id="sendWishBtn" class="bg-yellow-500 text-black p-3 rounded-xl font-bold hover:bg-yellow-400 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 pb-8 flex justify-center">
+                        <button onclick="goToDashboard()" class="text-sm text-gray-500 hover:text-white transition-colors border-b border-gray-700 hover:border-white pb-0.5">
+                            Skip to Dashboard &rarr;
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="scrollIndicator" class="scroll-indicator hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+                <p class="text-[10px] text-center font-code mt-1">SCROLL FOR MORE</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // CONFIGURATION
+        // -----------------------------------------------------
+        const OPAY_ACCOUNT_NUMBER = "8012345678"; // Replace with your real number
+        const CREATOR_EMAIL = "templetondc@gmail.com"; 
+        // -----------------------------------------------------
+
+        // AUDIO
+        const sound = new Howl({ src: ['https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'], volume: 0.5 });
+        const chargeSound = new Howl({ src: ['https://assets.mixkit.co/active_storage/sfx/218/218-preview.mp3'], volume: 0.2, loop: true });
+        const ambient = new Howl({ src: ['https://cdn.pixabay.com/download/audio/2022/03/24/audio_03d69a2123.mp3'], loop: true, volume: 0.3, html5: true });
+        const typeSound = new Howl({ src: ['https://assets.mixkit.co/active_storage/sfx/2361/2361-preview.mp3'], volume: 0.1, rate: 1.5 });
+        const successSound = new Howl({ src: ['https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'], volume: 0.4 });
+
+        // DRAG PHYSICS
+        const card = document.getElementById('aiLetter');
+        const dragHeader = document.getElementById('dragHeader');
+        let startY = 0;
+        let isDragging = false;
+        let isCardOpen = true; 
+
+        dragHeader.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+            card.classList.remove('snapping'); 
+        });
+
+        dragHeader.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const currentY = e.touches[0].clientY;
+            const delta = currentY - startY;
+            let moveY = isCardOpen ? delta : (window.innerHeight * 0.75) + delta;
+            if (moveY < 0) moveY = moveY * 0.3;
+            card.style.transform = `translateY(${moveY}px)`;
+            e.preventDefault(); 
+        });
+
+        dragHeader.addEventListener('touchend', (e) => {
+            isDragging = false;
+            card.classList.add('snapping'); 
+            const currentY = e.changedTouches[0].clientY - startY;
+            if (currentY > 150 && isCardOpen) {
+                minimizeCard();
+            } else {
+                restoreCard();
+            }
+        });
+
+        function minimizeCard() {
+            isCardOpen = false;
+            const hideDist = window.innerHeight * 0.75; 
+            card.style.transform = `translateY(${hideDist}px)`;
+            fireworkChance = 0.15; 
+        }
+
+        function restoreCard() {
+            isCardOpen = true;
+            card.style.transform = `translateY(0px)`;
+            fireworkChance = 0.03; 
+        }
+
+        // CANVAS
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+        let fireworks = [];
+        let warpSpeed = 0;
+        let fireworkChance = 0.03; 
+        
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y; this.color = color;
+                this.angle = Math.random() * Math.PI * 2;
+                this.speed = Math.random() * 4 + 1;
+                this.vx = Math.cos(this.angle) * this.speed;
+                this.vy = Math.sin(this.angle) * this.speed;
+                this.life = 1;
+                this.decay = Math.random() * 0.015 + 0.01;
+            }
+            update() {
+                if (warpSpeed > 0) {
+                    const dx = this.x - width/2;
+                    const dy = this.y - height/2;
+                    const angle = Math.atan2(dy, dx);
+                    this.vx = Math.cos(angle) * (10 + warpSpeed);
+                    this.vy = Math.sin(angle) * (10 + warpSpeed);
+                    this.decay = 0.05; 
+                } else {
+                    this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; 
+                }
+                this.x += this.vx; this.y += this.vy; this.life -= this.decay;
+            }
+            draw() {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                if (warpSpeed > 0) {
+                    ctx.lineWidth = 2; ctx.strokeStyle = this.color;
+                    ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - this.vx * 2, this.y - this.vy * 2); ctx.stroke();
+                } else {
+                    ctx.beginPath(); ctx.arc(this.x, this.y, 1.5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        }
+
+        class Firework {
+            constructor() {
+                this.x = Math.random() * width; this.y = height;
+                this.targetY = height * 0.2 + Math.random() * (height * 0.3);
+                this.speed = 10 + Math.random() * 4;
+                this.color = `hsl(${Math.random() * 60 + 30}, 100%, 50%)`; 
+            }
+            update() {
+                this.y -= this.speed; this.speed *= 0.98;
+                if (this.speed < 1 || this.y <= this.targetY) { this.explode(); return false; }
+                return true;
+            }
+            draw() {
+                ctx.globalAlpha = 1; ctx.fillStyle = this.color;
+                ctx.beginPath(); ctx.arc(this.x, this.y, 2, 0, Math.PI * 2); ctx.fill();
+            }
+            explode() {
+                if (navigator.vibrate) navigator.vibrate(10); 
+                for(let i=0; i<60; i++) particles.push(new Particle(this.x, this.y, this.color));
+            }
+        }
+
+        function loop() {
+            ctx.fillStyle = warpSpeed > 0 ? 'rgba(5, 5, 5, 0.5)' : 'rgba(5, 5, 5, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+            if(warpSpeed === 0 && Math.random() < fireworkChance) fireworks.push(new Firework()); 
+            for(let i=fireworks.length-1; i>=0; i--) {
+                if(!fireworks[i].update()) fireworks.splice(i,1); else fireworks[i].draw();
+            }
+            for(let i=particles.length-1; i>=0; i--) {
+                particles[i].update(); particles[i].draw(); if(particles[i].life <= 0) particles.splice(i,1);
+            }
+            requestAnimationFrame(loop);
+        }
+        loop();
+
+        // --- BUTTON LOGIC ---
+        const btn = document.getElementById('holdBtn');
+        const fill = document.getElementById('holdFill');
+        const btnText = document.getElementById('holdText');
+        let isHolding = false;
+        let progress = 0;
+        let launchTriggered = false;
+
+        function startHold(e) { e.preventDefault(); if (launchTriggered) return; isHolding = true; chargeSound.play(); charge(); }
+        function endHold() { if (launchTriggered) return; isHolding = false; chargeSound.stop(); deplete(); }
+        
+        function deplete() {
+            if(isHolding || progress <= 0) return;
+            progress -= 2; updateUI(); requestAnimationFrame(deplete);
+        }
+
+        function charge() {
+            if (!isHolding || launchTriggered) return;
+            progress += 1.5; updateUI();
+            if (progress >= 100) triggerLaunch(); else requestAnimationFrame(charge);
+        }
+
+        function updateUI() {
+            fill.style.width = `${progress}%`;
+            if(progress > 50) btnText.classList.add('filled'); else btnText.classList.remove('filled');
+        }
+
+        btn.addEventListener('mousedown', startHold);
+        btn.addEventListener('touchstart', startHold);
+        btn.addEventListener('mouseup', endHold);
+        btn.addEventListener('touchend', endHold);
+
+        // --- LAUNCH ---
+        function triggerLaunch() {
+            launchTriggered = true;
+            isHolding = false;
+            chargeSound.stop();
+            sound.play(); 
+            ambient.play();
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            warpSpeed = 50; 
+            for(let i=0; i<100; i++) particles.push(new Particle(width/2, height/2, '#FFF'));
+            
+            gsap.to("#heroSection", { scale: 1.5, opacity: 0, duration: 0.5, ease: "power2.in", onComplete: () => {
+                document.getElementById('heroSection').style.display = 'none';
+                warpSpeed = 0; 
+            }});
+
+            const card = document.getElementById('aiLetter');
+            card.classList.add('snapping');
+            card.style.transform = "translateY(0px)";
+            setTimeout(startTyping, 1200);
+        }
+
+        // --- TYPING & REVEAL ---
+        function startTyping() {
+            const fullText = "Happy New Year! ...and Happy Birthday to me! 🎂 \n\nI really wanted to celebrate with you, but I'm running a bit of a fever (server overload). 🤒 \n\nMy creator, Templeton DC, is operating on my code right now to get me back to 100%. \n\nI promise to remember this gift for you. I'll message you the moment I wake up.";
+            const textEl = document.getElementById('typewriterText');
+            const cursor = document.querySelector('.cursor');
+            let i = 0;
+            const typeInterval = setInterval(() => {
+                if (i < fullText.length) {
+                    const char = fullText.charAt(i);
+                    const span = document.createElement('span');
+                    span.innerText = char === '\n' ? '\u00A0' : char;
+                    if(char === '\n') textEl.insertBefore(document.createElement('br'), cursor);
+                    textEl.insertBefore(span, cursor);
+                    if(Math.random() > 0.7) typeSound.play();
+                    i++;
+                } else {
+                    clearInterval(typeInterval);
+                    revealContent();
+                }
+            }, 30);
+        }
+
+        function revealContent() {
+            document.getElementById('typingDots').style.display = 'none';
+            document.getElementById('statusText').innerText = "Offline / Healing";
+            successSound.play();
+            
+            const hidden = document.getElementById('hiddenContent');
+            hidden.classList.remove('hidden');
+            gsap.to(hidden, { opacity: 1, y: 0, duration: 1, ease: "power3.out" });
+            
+            // Show Scroll Indicator
+            const indicator = document.getElementById('scrollIndicator');
+            indicator.classList.remove('hidden');
+            
+            // Hide indicator on scroll
+            document.getElementById('scrollContainer').addEventListener('scroll', function() {
+                if(this.scrollTop > 50) indicator.style.opacity = '0';
+                else indicator.style.opacity = '1';
+            });
+
+            localStorage.setItem('chaka_event_trigger', 'newyear_2026_premium'); 
+        }
+
+        // --- INTERACTION FUNCTIONS ---
+        
+        // 1. COPY OPAY NUMBER
+        function copyOpay() {
+            const btn = document.getElementById('opayBtn');
+            const icon = document.getElementById('opayIcon');
+            const txt = document.getElementById('opayText');
+            
+            navigator.clipboard.writeText(OPAY_ACCOUNT_NUMBER).then(() => {
+                icon.innerText = "✅";
+                txt.innerText = "Copied Account Number";
+                btn.classList.add('bg-green-400');
+                
+                setTimeout(() => {
+                    icon.innerText = "💸";
+                    txt.innerText = "Copy Opay Account";
+                    btn.classList.remove('bg-green-400');
+                }, 3000);
+            });
+        }
+
+        // 2. SEND EMAIL WISH
+        function sendWish() {
+            const input = document.getElementById('wishInput');
+            const wish = input.value.trim();
+            if(!wish) return;
+
+            // Construct Email Link
+            const subject = "Happy Birthday Chaka! 🎂";
+            const body = `Hi Templeton,\n\nI just wanted to wish Chaka a happy birthday and a speedy recovery!\n\nMy Message:\n${wish}\n\nFrom a Chaka User.`;
+            const mailtoLink = `mailto:${CREATOR_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            
+            // Open Email App
+            window.location.href = mailtoLink;
+            
+            // Visual Feedback
+            input.value = "Opening email app...";
+            input.disabled = true;
+            for(let i=0; i<10; i++) setTimeout(() => fireworks.push(new Firework()), i*200);
+            
+            setTimeout(() => {
+                input.value = "";
+                input.disabled = false;
+                input.placeholder = "Wish sent! Send another?";
+            }, 3000);
+        }
+
+        // 3. GO TO DASHBOARD (HANDSHAKE)
+        function goToDashboard() {
+            localStorage.setItem('chaka_event_trigger', 'newyear_2026_premium'); 
+            window.location.href = 'index.html';
+        }
+
+        gsap.to("#topBar", { opacity: 1, y: 0, duration: 1, delay: 0.5 });
+        gsap.from("#heroSection", { opacity: 0, scale: 0.9, duration: 1, delay: 0.2 });
+
+    </script>
+</body>
+</html>

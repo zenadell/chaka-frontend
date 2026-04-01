@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'/>
+  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap' rel='stylesheet'>
+  <title>Welcome to Chaka AI</title>
+  <script src='https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js' type='module'></script>
+  <style>
+    /* Root tokens from your original file */
+    :root {
+      --vw: 390px; 
+      --vh: 844px;
+      --safe-top: 44px; 
+      --safe-bottom: 24px;
+      --bg-top: #FFBCAF; 
+      --bg-mid: #F08EA8; 
+      --bg-bottom: #9B6BF5;
+      --black-surface: #101010; 
+      --wave-black: #0f0f0f; 
+      --accent: #FF6B61; 
+      --white: #FFFFFF;
+      --footer-padding-y: 20px;
+      --footer-font-size: 14px;
+      --footer-height: calc(2 * var(--footer-padding-y) + var(--footer-font-size));
+      
+      /* Variables for the new Auth Modal, consistent with your style */
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --radius-pill: 999px;
+      --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --surface-light: #fffefc;
+      --bg-light: #faf9f7;
+      --border-light: #e5e7eb;
+      --text-primary-light: #141414;
+      --text-secondary-light: #6b7280;
+    }
+
+    * { box-sizing: border-box; }
+    
+    html { height: 100%; }
+    
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      background-color: #000; /* Ensure body background is black */
+    }
+
+    .hero {
+      position: relative;
+      width: 100%;
+      flex-grow: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: black;
+      background-repeat: no-repeat;
+      background-size: 200% 200%;
+    }
+
+    .silhouette {
+      position: absolute; top: 120px; width: 120px; height: 420px;
+      background-repeat: no-repeat; background-size: cover;
+      filter: blur(8px); opacity: 0.22;
+    }
+    .silhouette.left { left: -48px; background-image: url('placeholder_left_silhouette.png'); transform: scale(1.05); }
+    .silhouette.right { right: -48px; background-image: url('placeholder_right_silhouette.png'); transform: scale(1.05); }
+
+    .avatar-wrap {
+      position: relative; margin-top: 0; padding-top: 40px;
+      display: flex; align-items: center; justify-content: center; width: 100%;
+    }
+
+    dotlottie-wc { width: 300px; height: 300px; display: block; z-index: 3; }
+
+    .avatar-shadow {
+      position: absolute; left: 50%; transform: translateX(-50%) translateY(12px);
+      bottom: calc(100% - 90px); width: 240px; height: 48px; border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 60%);
+      filter: blur(8px); z-index: 2;
+    }
+
+    .hero-title {
+      margin-top: 24px; font-size: 30px; line-height: 28px; font-weight: 700;
+      letter-spacing: 0.2px; color: var(--white); text-align: center; z-index: 4;
+    }
+
+    .bottom-wave { position: absolute; left: 0; right: 0; bottom: 0; height: 320px; pointer-events: none; }
+    .wave-svg { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 320px; }
+
+    .pills {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      bottom: 0; width: 100%; display: flex; flex-direction: column;
+      align-items: center; gap: 16px; z-index: 5;
+      padding-bottom: calc(var(--safe-bottom)); pointer-events: auto;
+    }
+
+    .pill {
+      width: 312px; max-width: 88%; height: 56px; border-radius: 28px;
+      background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      color: var(--white); font-size: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35); cursor: pointer;
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    .pill:hover { transform: translateY(-3px); background: rgba(255,255,255,0.1); }
+    .pill:active { transform: translateY(-1px); }
+    
+    #login-btn{
+        color:#f67e7d;
+        font-size: 30px;
+    }
+
+    .footer {
+      position: relative; width: 100%; text-align: center;
+      padding: var(--footer-padding-y) 0; color: var(--white);
+      background: var(--wave-black); font-size: var(--footer-font-size); z-index: 10;
+    }
+
+    .footer span a { text-decoration: none; color: #b4182d; font-weight: 800; }
+    
+    /* ======================================================= */
+    /* DESKTOP-SPECIFIC STYLES (from your original file) */
+    @media (min-width: 768px) {
+      .hero { justify-content: center; }
+      .avatar-wrap { padding-top: 0; }
+      dotlottie-wc { width: 300px; height: 300px; }
+      .avatar-shadow { bottom: calc(100% - 100px); }
+      .hero-title { margin-top: 30px; font-size: 60px; line-height: 1.2; }
+      .pills { flex-direction: row; gap: 20px; max-width: 680px; width: auto; }
+      .pill { width: 280px; font-size: 16px; }
+    }
+    /* ======================================================= */
+
+    /* ======================================================= */
+    /* ✅ NEW AUTHENTICATION MODAL STYLES */
+    /* ======================================================= */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--transition-fast);
+    }
+    .modal-overlay:not(.hidden) { opacity: 1; pointer-events: auto; }
+    
+    .auth-card {
+      background-color: var(--surface-light); border-radius: var(--radius-lg);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 2.5rem;
+      width: 100%; max-width: 420px; text-align: center;
+      border: 1px solid var(--border-light);
+      transform: scale(0.95);
+      transition: transform var(--transition-fast);
+      position: relative;
+    }
+    .modal-overlay:not(.hidden) .auth-card { transform: scale(1); }
+
+    .modal-close-btn {
+      position: absolute; top: 12px; right: 12px;
+      width: 36px; height: 36px; border-radius: 50%;
+      background: none; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary-light);
+      transition: background-color var(--transition-fast), color var(--transition-fast);
+    }
+    .modal-close-btn:hover { background-color: var(--bg-light); color: var(--text-primary-light); }
+    .modal-close-btn svg { width: 20px; height: 20px; }
+    
+    .auth-header h2 {
+      font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem;
+      color: var(--text-primary-light);
+    }
+    .auth-header p { margin: 0 0 1.5rem; color: var(--text-secondary-light); }
+    
+    .auth-tabs {
+      display: flex; background-color: var(--bg-light);
+      border-radius: var(--radius-pill); padding: 4px; margin-bottom: 1.5rem;
+    }
+    .auth-tab {
+      flex: 1; padding: 0.6rem 1rem; border-radius: var(--radius-pill);
+      font-weight: 600; font-size: 0.9rem; transition: all var(--transition-fast);
+      border: none; background: none; cursor: pointer;
+    }
+    .auth-tab:not(.active) { color: var(--text-secondary-light); }
+    .auth-tab.active {
+      background-color: var(--surface-light); color: var(--text-primary-light);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    #auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
+    .input-group { text-align: left; }
+    .input-group label {
+      display: block; font-size: 0.875rem; font-weight: 600;
+      margin-bottom: 0.5rem; color: var(--text-primary-light);
+    }
+    .input-group input {
+      width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm); background-color: var(--bg-light);
+      color: var(--text-primary-light); font-size: 1rem; font-family: inherit;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .input-group input:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center;
+      background-color: var(--accent); color: white; font-size: 1rem;
+      font-weight: 600; padding: 0.8rem; border-radius: var(--radius-sm);
+      transition: all var(--transition-fast); cursor: pointer; border: none;
+      box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
+    .btn-primary:disabled { background-color: #f67e7d99; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-primary .spinner { width: 20px; height: 20px; border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .separator {
+      display: flex; align-items: center; text-align: center;
+      color: var(--text-secondary-light); font-size: 0.8rem; font-weight: 600; margin: 1.5rem 0;
+    }
+    .separator::before, .separator::after { content: ''; flex: 1; border-bottom: 1px solid var(--border-light); }
+    .separator:not(:empty)::before { margin-right: .75em; }
+    .separator:not(:empty)::after { margin-left: .75em; }
+
+    .btn-google {
+      display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+      width: 100%; padding: 0.75rem 1rem; background-color: var(--surface-light);
+      color: var(--text-primary-light); border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600;
+      transition: all var(--transition-fast); cursor: pointer;
+    }
+    .btn-google:hover { background-color: var(--bg-light); border-color: #9ca3af; }
+    .btn-google .google-icon { width: 20px; height: 20px; }
+
+    .error-message {
+      margin-top: 1.5rem; padding: 0.75rem 1rem; background-color: #ef44441a;
+      color: #ef4444; border: 1px solid #ef444433; border-radius: var(--radius-sm);
+      font-size: 0.9rem; font-weight: 500; text-align: center;
+    }
+
+    .hidden { display: none !important; }
+
+  </style>
+</head>
+<body>
+  <main class='hero'>
+    <div class='silhouette left' aria-hidden='true'></div>
+    <div class='silhouette right' aria-hidden='true'></div>
+
+    <div class='avatar-wrap'>
+     <dotlottie-wc src="https://lottie.host/0777569f-fe79-4e36-81c1-c2ee302a4493/35bJ6BnLN9.lottie" speed="1" autoplay loop></dotlottie-wc>
+      <div class='avatar-shadow' aria-hidden='true'></div>
+    </div>
+
+    <h1 class='hero-title'>Welcome to Chaka</h1>
+
+    <div class='bottom-wave' aria-hidden='true'>
+      <svg viewBox='0 0 390 320' preserveAspectRatio='none' class='wave-svg'>
+        <path d='M0 116 C 100 60 290 60 390 116 L390 320 L0 320 Z' fill='#0f0f0f'></path>
+      </svg>
+      <div class='pills'>
+        <button class='pill' id='login-btn'>
+          <span>Login</span>
+        </button>
+        <button class='pill' id='signup-btn'>
+          <span>Sign Up</span>
+        </button>
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <p>Powered By <span><a href="https://jomiez.vercel.app" target="_blank" rel="noopener noreferrer">Jomiez</a></span></p>
+  </footer>
+
+  <div id="auth-modal" class="modal-overlay hidden">
+    <div class="auth-card">
+        <button id="modal-close-btn" class="modal-close-btn" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4148L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z"></path></svg>
+        </button>
+        <div class="auth-header">
+            <h2 id="auth-title">Welcome Back</h2>
+            <p id="auth-subtitle">Sign in to continue to Chaka</p>
+        </div>
+        <div class="auth-tabs">
+            <button id="tab-signin" class="auth-tab active">Sign In</button>
+            <button id="tab-signup" class="auth-tab">Sign Up</button>
+        </div>
+        <form id="auth-form">
+            <div class="input-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••">
+            </div>
+            <button type="submit" id="submit-btn" class="btn-primary">
+                <span class="btn-text">Sign In</span>
+                <div class="spinner hidden"></div>
+            </button>
+        </form>
+        <div class="separator"><span>OR</span></div>
+        <button id="google-signin-btn" class="btn-google">
+            <svg class="google-icon" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            <span>Continue with Google</span>
+        </button>
+        <div id="error-message" class="error-message hidden"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // --- Firebase SDK Imports ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+        getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+        signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup,
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    
+    // --- Firebase Configuration ---
+    // IMPORTANT: This configuration is from your previous files.
+    const firebaseConfig = {
+        apiKey: "AIzaSyCBBm3pHDVgUYs2BTzwVwtTwC-cOAFjKWo",
+        authDomain: "chakachaka-e672a.firebaseapp.com",
+        projectId: "chakachaka-e672a",
+        storageBucket: "chakachaka-e672a.firebasestorage.app",
+        messagingSenderId: "226377707807",
+        appId: "1:226377707807:web:08f207a259c4e75ab8402a",
+        measurementId: "G-14NQJL3Q1J"
+    };
+
+    // --- Initialize Firebase ---
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const googleProvider = new GoogleAuthProvider();
+
+    // --- DOM Elements ---
+    const DOM = {
+        // Welcome Page Elements
+        hero: document.querySelector('.hero'),
+        loginBtn: document.getElementById('login-btn'),
+        signupBtn: document.getElementById('signup-btn'),
+        // Modal Elements
+        authModal: document.getElementById('auth-modal'),
+        closeModalBtn: document.getElementById('modal-close-btn'),
+        authTitle: document.getElementById('auth-title'),
+        authSubtitle: document.getElementById('auth-subtitle'),
+        tabSignin: document.getElementById('tab-signin'),
+        tabSignup: document.getElementById('tab-signup'),
+        authForm: document.getElementById('auth-form'),
+        emailInput: document.getElementById('email'),
+        passwordInput: document.getElementById('password'),
+        submitBtn: document.getElementById('submit-btn'),
+        submitBtnText: document.querySelector('#submit-btn .btn-text'),
+        submitBtnSpinner: document.querySelector('#submit-btn .spinner'),
+        googleSigninBtn: document.getElementById('google-signin-btn'),
+        errorMessage: document.getElementById('error-message'),
+    };
+    
+    let isSignInMode = true;
+
+    // --- Auth State Listener (Redirects if already logged in) ---
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // User is signed in, redirect to the main chat app
+            window.location.href = 'index.html';
+        }
+        // If no user, do nothing. The page is the login page.
+    });
+    
+    // ===============================================
+    // ✅ AUTHENTICATION LOGIC (from previous auth.js)
+    // ===============================================
+
+    function showModal() { DOM.authModal.classList.remove('hidden'); }
+    function hideModal() { DOM.authModal.classList.add('hidden'); }
+
+    function setUIMode(isSignIn) {
+        isSignInMode = isSignIn;
+        if (isSignIn) {
+            DOM.tabSignin.classList.add('active');
+            DOM.tabSignup.classList.remove('active');
+            DOM.authTitle.textContent = 'Welcome Back';
+            DOM.authSubtitle.textContent = 'Sign in to continue to Chaka';
+            DOM.submitBtnText.textContent = 'Sign In';
+            DOM.passwordInput.autocomplete = 'current-password';
+        } else {
+            DOM.tabSignin.classList.remove('active');
+            DOM.tabSignup.classList.add('active');
+            DOM.authTitle.textContent = 'Create an Account';
+            DOM.authSubtitle.textContent = 'Get started with your Chaka account';
+            DOM.submitBtnText.textContent = 'Sign Up';
+            DOM.passwordInput.autocomplete = 'new-password';
+        }
+    }
+
+    function showLoading(isLoading) {
+        DOM.submitBtn.disabled = isLoading;
+        DOM.submitBtnSpinner.classList.toggle('hidden', !isLoading);
+        DOM.submitBtnText.classList.toggle('hidden', isLoading);
+    }
+
+    function displayError(message) {
+        DOM.errorMessage.textContent = message;
+        DOM.errorMessage.classList.remove('hidden');
+    }
+
+    function hideError() {
+        DOM.errorMessage.classList.add('hidden');
+    }
+
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        hideError();
+        showLoading(true);
+        const email = DOM.emailInput.value;
+        const password = DOM.passwordInput.value;
+
+        try {
+            if (isSignInMode) {
+                await signInWithEmailAndPassword(auth, email, password);
+            } else {
+                await createUserWithEmailAndPassword(auth, email, password);
+            }
+        } catch (error) {
+            let msg = 'This email is not registered yet. please register or sign in with your google account.';
+            switch (error.code) {
+                case 'auth/invalid-email': msg = 'Please enter a valid email address.'; break;
+                case 'auth/user-not-found':
+                case 'auth/wrong-password': msg = 'Invalid credentials. Please check your email and password.'; break;
+                case 'auth/email-already-in-use': msg = 'This email is already registered. Please sign in.'; break;
+                case 'auth/weak-password': msg = 'Password should be at least 6 characters long.'; break;
+            }
+            displayError(msg);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function handleGoogleSignIn() {
+        hideError();
+        try {
+            await signInWithPopup(auth, googleProvider);
+        } catch (error) {
+            let msg = 'Could not sign in with Google. Please try again.';
+            if (error.code === 'auth/popup-closed-by-user') {
+                // Don't show an error if the user just closes the popup.
+                return;
+            } else if (error.code === 'auth/account-exists-with-different-credential') {
+                 msg = 'An account already exists with this email. Please sign in using the method you originally used.';
+            }
+            displayError(msg);
+        }
+    }
+
+    // --- Modal & Form Event Listeners ---
+    DOM.loginBtn.addEventListener('click', () => { setUIMode(true); showModal(); });
+    DOM.signupBtn.addEventListener('click', () => { setUIMode(false); showModal(); });
+    DOM.closeModalBtn.addEventListener('click', hideModal);
+    DOM.authModal.addEventListener('click', (e) => { if (e.target === DOM.authModal) hideModal(); }); // Close on overlay click
+    DOM.tabSignin.addEventListener('click', () => setUIMode(true));
+    DOM.tabSignup.addEventListener('click', () => setUIMode(false));
+    DOM.authForm.addEventListener('submit', handleFormSubmit);
+    DOM.googleSigninBtn.addEventListener('click', handleGoogleSignIn);
+
+
+    // ====================================================
+    // ✅ ALIVE BACKGROUND LOGIC (from your original file)
+    // ====================================================
+    (function() {
+        if (!DOM.hero) return;
+        let targetX = window.innerWidth / 2, targetY = window.innerHeight / 2;
+        let currentX = targetX, currentY = targetY;
+        let time = 0;
+        let colorPaletteIndex = 0, transitionProgress = 0;
+        const colorPalettes = [
+            ['#ff007f', '#ff8c00', '#40e0d0', '#00bfff'], ['#8a2be2', '#ff4500', '#00ff7f', '#ff1493'],
+            ['#ffd700', '#dc143c', '#1e90ff', '#9400d3'], ['#32cd32', '#ffa500', '#f08080', '#87ceeb']
+        ];
+        function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+        }
+        function rgbToHex(r, g, b) { return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1); }
+        function blendColors(hex1, hex2, amt) {
+            const [r1, g1, b1] = hexToRgb(hex1);
+            const [r2, g2, b2] = hexToRgb(hex2);
+            return rgbToHex(Math.round(lerp(r1, r2, amt)), Math.round(lerp(g1, g2, amt)), Math.round(lerp(b1, b2, amt)));
+        }
+        function animate() {
+            time += 0.005;
+            const heroRect = DOM.hero.getBoundingClientRect();
+            const autoMoveX = Math.sin(time * 0.5) * (heroRect.width * 0.2) + heroRect.width / 2;
+            const autoMoveY = Math.cos(time * 0.4) * (heroRect.height * 0.2) + heroRect.height / 2;
+            const relativeTargetX = targetX - heroRect.left;
+            const relativeTargetY = targetY - heroRect.top;
+            const finalX = lerp(autoMoveX, relativeTargetX, 0.2);
+            const finalY = lerp(autoMoveY, relativeTargetY, 0.2);
+            currentX = lerp(currentX, finalX, 0.05);
+            currentY = lerp(currentY, finalY, 0.05);
+            const xPos = (currentX / heroRect.width) * 100;
+            const yPos = (currentY / heroRect.height) * 100;
+            const fromColors = colorPalettes[colorPaletteIndex];
+            const toColors = colorPalettes[(colorPaletteIndex + 1) % colorPalettes.length];
+            const blendedColors = fromColors.map((fromColor, i) => blendColors(fromColor, toColors[i], transitionProgress));
+            transitionProgress += 0.001;
+            if (transitionProgress >= 1) {
+                transitionProgress = 0;
+                colorPaletteIndex = (colorPaletteIndex + 1) % colorPalettes.length;
+            }
+            const newBackground = `
+                radial-gradient(circle at ${xPos}% ${yPos}%, ${blendedColors[0]} 0%, transparent 50%),
+                radial-gradient(circle at ${100 - xPos}% ${yPos}%, ${blendedColors[1]} 0%, transparent 50%),
+                radial-gradient(circle at ${xPos}% ${100 - yPos}%, ${blendedColors[2]} 0%, transparent 50%),
+                radial-gradient(circle at ${100 - xPos}% ${100 - yPos}%, ${blendedColors[3]} 0%, transparent 50%)
+            `;
+            DOM.hero.style.backgroundImage = newBackground;
+            requestAnimationFrame(animate);
+        }
+        document.addEventListener('mousemove', (e) => { targetX = e.clientX; targetY = e.clientY; });
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) { targetX = e.touches[0].clientX; targetY = e.touches[0].clientY; }
+        });
+        requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

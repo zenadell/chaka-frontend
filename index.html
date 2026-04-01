@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>chaka!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      svg: {
+        fontCache: 'global',
+        scale: 1,
+        minScale: 0.8,
+        overflow: 'linebreak',
+      }
+    };
+  </script>
+
+  <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+  <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
+  <link rel="stylesheet" href="style31.css">
+  <link rel="stylesheet" href="liveMode.css">
+  <link rel="stylesheet" href="educationMode.css">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+
+</head>
+
+<body data-theme="light" style="opacity: 0; transition: opacity 0.3s;">
+
+  <div id="toast-container"></div>
+
+  <div id="app">
+    <aside id="sidebar">
+      <div id="sidebar-header">
+        <h2>History</h2>
+        <div id="sidebar-controls">
+          <button id="new-chat-sidebar-btn" class="icon-btn" title="New Chat"><svg xmlns="http://www.w3.org/2000/svg"
+              fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg></button>
+        </div>
+      </div>
+      <div id="session-list"></div>
+
+      <div id="user-profile">
+        <img id="user-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+          alt="User">
+        <div id="user-info">
+          <div id="user-display-name">Loading...</div>
+          <div id="user-email">...</div>
+        </div>
+        <button id="user-settings-btn" class="icon-btn" title="Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M10.343 3.94c.09-.542.56-1.007 1.11-1.226l.44-.165a1.868 1.868 0 0 1 1.99 0l.44.165c.55.219 1.02.684 1.11 1.226l.09.542a1.868 1.868 0 0 0 2.22 1.49l.522-.174a1.868 1.868 0 0 1 2.15 1.14l.14.39a1.868 1.868 0 0 1-1.02 2.45l-.48.275a1.868 1.868 0 0 0-1.22 2.22l.174.522a1.868 1.868 0 0 1-1.14 2.15l-.39.14a1.868 1.868 0 0 1-2.45-1.02l-.275-.48a1.868 1.868 0 0 0-2.22-1.22l-.522.174a1.868 1.868 0 0 1-2.15-1.14l-.14-.39a1.868 1.868 0 0 1 1.02-2.45l.48-.275a1.868 1.868 0 0 0 1.22-2.22l-.174-.522a1.868 1.868 0 0 1-1.14-2.15l-.39-.14a1.868 1.868 0 0 1-2.45 1.02l-.275.48c-.62.97-1.72.97-2.34 0l-.275-.48a1.868 1.868 0 0 1-2.45-1.02l-.39-.14a1.868 1.868 0 0 1-1.14-2.15l.174-.522a1.868 1.868 0 0 0-1.22-2.22l-.48-.275a1.868 1.868 0 0 1-1.02-2.45l.14-.39a1.868 1.868 0 0 1 2.15-1.14l.522.174a1.868 1.868 0 0 0 2.22-1.49l.09-.542Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          </svg>
+        </button>
+
+        <div id="user-settings-popup">
+          <div class="popup-section-title">Settings</div>
+
+          <button id="theme-toggle" class="popup-action-btn" title="Toggle Theme">
+            <span id="theme-icon-popup">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+              </svg>
+            </span>
+            <span id="theme-text">Toggle Theme</span>
+          </button>
+
+          <div class="popup-divider"></div>
+
+          <button id="clear-history-btn" class="popup-action-btn" title="Clear History">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.036-2.134H8.036C6.91 2.75 6 3.664 6 4.834v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+            <span>Clear All History</span>
+          </button>
+
+          <button id="sign-out-btn" class="popup-action-btn danger" title="Sign Out">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+            </svg>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+    <main id="chat-container">
+      <header id="chat-header">
+        <button class="menu-btn icon-btn" id="menu-btn"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg></button>
+        <img id="bot-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+          alt="Bot Avatar">
+        <h1 id="chat-title">Loading...</h1>
+        <div id="global-audio-visualizer" class="hidden">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </header>
+
+      <div id="chat-messages"></div>
+
+      <button id="scroll-to-bottom" title="Scroll to bottom"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+          viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+        </svg></button>
+
+      <div id="composer">
+        <div id="status-row"></div>
+        <div id="api-status-row" class="hidden"></div>
+
+        <div id="input-wrapper">
+
+          <button id="composer-actions-btn" class="icon-btn" title="More options" style="display: none;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>
+            </svg>
+          </button>
+
+          <div id="composer-actions-popup">
+
+            <div id="model-selector-wrapper"
+              style="padding: 0.5rem; border-bottom: 1px solid var(--border-light); margin-bottom: 0.5rem;">
+              <label for="model-select"
+                style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">AI
+                Model</label>
+              <select id="model-select"
+                style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-light); background: var(--bg-dark); color: var(--text-primary);">
+                <option value="gemini-2.5-flash">chaka Flash (Fastest)</option>
+                <option value="gemini-2.5-pro">chaka 2.5 Pro</option>
+                <option value="gemini-3-pro-preview">chaka 3 Pro (Preview)</option>
+                <option value="gemini-3-pro-preview-code">chaka 3 Pro Code (Preview - for code)</option>
+              </select>
+            </div>
+            <div id="personality-list-title">Select a Personality</div>
+            <div id="personality-list"></div>
+            <div class="popup-divider"></div>
+            <div id="file-upload-wrapper" title="Upload File">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.441l-7.81 7.81a1.5 1.5 0 002.122 2.122l7.81-7.81" />
+              </svg>
+              <span>Add file</span>
+              <input id="file-upload" type="file"
+                multiple=".txt,.pdf,.html,.css,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.class,.kt,.kts,.scala,.groovy,.c,.cpp,.cc,.cxx,.h,.hpp,.rs,.go,.rb,.php,.pl,.sh,.bash,.zsh,.swift,.m,.mm,.cs,.vb,.sql,.json,.yml,.yaml,.xml,.toml,.ini,.r,.jl,.dart,.lua,.hs,.ml,.erl,.ex,.exs,.md,.markdown,.png,.jpeg,.jpg,.webp" />
+            </div>
+          </div>
+
+          <div id="file-preview-container" style="display: none;"></div>
+
+          <textarea id="message-input" rows="1" placeholder="say whatever!..."></textarea>
+
+          <button id="live-mode-btn" class="icon-btn" title="Start Live Voice Session">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6.62 10.79c1.44 2.82 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+            </svg>
+          </button>
+
+          <button id="send-btn" title="Send" disabled>
+            <span class="mic-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                width="22" height="22">
+                <path
+                  d="M12 1.75a3.25 3.25 0 0 0-3.25 3.25v7.5a3.25 3.25 0 0 0 6.5 0v-7.5A3.25 3.25 0 0 0 12 1.75ZM16.25 12.5a.75.75 0 0 1-1.5 0v-7.5a1.75 1.75 0 0 0-3.5 0v7.5a.75.75 0 0 1-1.5 0v-7.5a3.25 3.25 0 0 1 6.5 0v7.5Z" />
+                <path
+                  d="M4.75 10a.75.75 0 0 0-1.5 0v2.5a8.75 8.75 0 0 0 8.75 8.75v3.5a.75.75 0 0 0 1.5 0v-3.5a8.75 8.75 0 0 0 8.75-8.75v-2.5a.75.75 0 0 0-1.5 0v2.5a7.25 7.25 0 0 1-7.25 7.25A7.25 7.25 0 0 1 4.75 12.5v-2.5Z" />
+              </svg></span>
+            <span class="send-icon" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                fill="currentColor" width="22" height="22">
+                <path
+                  d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+              </svg></span>
+            <span class="stop-icon" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 265.405 265.405" xml:space="preserve" fill="currentColor" width="22" height="22">
+                <g>
+                  <path style="fill:#fff;"
+                    d="M132.703,0C59.53,0,0,59.53,0,132.702s59.53,132.702,132.703,132.702 c73.172,0,132.702-59.53,132.702-132.702S205.875,0,132.703,0z M132.703,250.405C67.801,250.405,15,197.604,15,132.702 S67.801,15,132.703,15c64.901,0,117.702,52.801,117.702,117.702S197.604,250.405,132.703,250.405z" />
+                  <path style="fill:#fff;"
+                    d="M174.816,73.089H90.589c-9.649,0-17.5,7.851-17.5,17.5v84.227c0,9.649,7.851,17.5,17.5,17.5h84.227 c9.649,0,17.5-7.851,17.5-17.5V90.589C192.316,80.94,184.465,73.089,174.816,73.089z M177.316,174.816c0,1.355-1.145,2.5-2.5,2.5 H90.589c-1.355,0-2.5-1.145-2.5-2.5V90.589c0-1.355,1.145-2.5,2.5-2.5h84.227c1.355,0,2.5,1.145,2.5,2.5V174.816z" />
+                </g>
+              </svg></span>
+            <span class="spinner" style="display: none;"></span>
+          </button>
+
+        </div>
+      </div>
+    </main>
+  </div>
+  <div id="overlay"></div>
+
+  <div id="continuation-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button class="modal-close-btn" title="Cancel">&times;</button>
+      <h3>Continue Chat?</h3>
+      <p>You have a previous conversation with this personality. you wanna continue it or start a new one?</p>
+      <div class="modal-actions">
+        <button id="continue-chat-btn" class="btn">Continue Last Chat</button>
+        <button id="new-chat-modal-btn" class="btn ghost">Start New Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="personality-preview-modal" class="modal-overlay hidden">
+    <div class="modal-content preview">
+      <video id="preview-video" muted playsinline loop autoplay></video>
+      <div class="preview-overlay"></div>
+      <div class="preview-content">
+        <div class="preview-header">
+          <h3 id="preview-personality-name"></h3>
+          <span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="3" fill="currentColor" />
+            </svg>
+            Preview
+          </span>
+        </div>
+        <div class="preview-footer">
+          <p>This is an example of how this personality responds. Ready to switch?</p>
+          <div class="modal-actions">
+            <button id="confirm-personality-switch-btn" class="btn">Switch Personality</button>
+            <button id="cancel-personality-switch-btn" class="btn ghost">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <button class="modal-close-btn" title="Cancel">&times;</button>
+    </div>
+  </div>
+
+  <div id="welcome-tour-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <dotlottie-wc src="https://lottie.host/e075775a-c999-47f3-b180-23a5989d3170/3L63wVd2Kn.lottie"
+        style="width: 180px; height: 180px; margin: -2rem auto 0.5rem;" speed="1" autoplay loop></dotlottie-wc>
+      <h3>Welcome to Chaka!</h3>
+      <p>Ready for a quick tour to see how everything works? It only takes a minute!</p>
+      <div class="modal-actions">
+        <button id="start-tour-btn" class="btn">Take the Tour</button>
+        <button id="skip-tour-btn" class="btn ghost">No, Thanks</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tour-overlay" class="hidden">
+    <div class="tour-spotlight"></div>
+    <div class="tour-tooltip">
+      <div class="tour-content">
+        <h4 id="tour-title"></h4>
+        <p id="tour-text"></p>
+      </div>
+      <div class="tour-navigation">
+        <span id="tour-step-counter"></span>
+        <div class="tour-buttons">
+          <button id="tour-prev-btn" class="btn ghost">Previous</button>
+          <button id="tour-next-btn" class="btn">Next</button>
+          <button id="tour-finish-btn" class="btn">Finish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="announcement-popup" class="modal-overlay hidden">
+    <div class="modal-content announcement-popup-content">
+      <button id="announcement-close-btn" class="modal-close-btn" title="Close">&times;</button>
+      <div id="announcement-media" class="announcement-media"></div>
+      <div class="announcement-text-content">
+        <h3 id="announcement-title"></h3>
+        <p id="announcement-description"></p>
+      </div>
+      <div class="announcement-actions">
+        <button id="announcement-read-more-btn" class="btn">Read More</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="announcement-details-modal" class="modal-overlay hidden">
+    <div class="modal-content announcement-details-content">
+      <button id="announcement-details-close-btn" class="modal-close-btn" title="Close">&times;</button>
+      <div id="announcement-details-content" class="message-content">
+      </div>
+    </div>
+  </div>
+
+  <div id="export-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button id="export-close-btn" class="modal-close-btn" title="Cancel">&times;</button>
+      <h3>Export As</h3>
+      <p>Choose a format to download the message.</p>
+      <div class="modal-actions">
+        <button id="export-pdf-btn" class="btn">PDF Document</button>
+        <button id="export-txt-btn" class="btn ghost">Text File</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="export-confirmation-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3>Export Successful</h3>
+      <p id="export-confirmation-message">The file has been downloaded.</p>
+      <div class="modal-actions">
+        <button id="view-exported-file-btn" class="btn">View File</button>
+        <button id="export-continue-chat-btn" class="btn ghost">Continue Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="export-loading-modal" class="modal-overlay hidden">
+    <div class="export-loading-content">
+      <svg id="export-loader-svg" viewBox="0 0 80 80">
+        <circle class="track" cx="40" cy="40" r="34"></circle>
+        <circle class="progress" cx="40" cy="40" r="34"></circle>
+      </svg>
+      <div id="export-loading-text">Generating File...</div>
+    </div>
+  </div>
+
+  <!-- Live Mode Overlay (Sleek Professional HUD) -->
+  <div id="live-mode-overlay">
+    <div class="live-header">
+      <div class="live-status-pill">
+        <span id="live-conn-status" class="dot"></span>
+        <span id="live-status-text">OFFLINE</span>
+      </div>
+      <div id="live-persona-name" class="live-title">CHAKA // LIVE</div>
+      <button id="live-exit-btn" class="live-close-btn" title="End Session">&times;</button>
+    </div>
+
+    <div class="live-central">
+      <div class="orb-container">
+        <canvas id="live-visualizer" width="400" height="400"></canvas>
+        <div class="orb-pulsar"></div>
+      </div>
+    </div>
+
+    <div id="live-chat-log" class="live-chat-log"></div>
+
+    <div class="live-footer">
+      <div class="live-controls">
+        <button id="live-mic-btn" class="live-btn mic" title="Toggle Microphone">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+          </svg>
+        </button>
+        <button id="live-connect-btn" class="live-btn connect">Wake</button>
+        <div id="live-vol-meter" class="live-vol-meter">
+          <div id="live-vol-bar" class="live-vol-bar"></div>
+        </div>
+        <div id="live-mic-status" class="live-mic-status">MIC: OFF</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Turso Client (Socket.io + Database API) -->
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="tursoClient.js"></script>
+  <script src="educationMode.js"></script>
+
+  <script type="module" src="script25.js"></script>
+  <script type="module" src="liveMode.js"></script>
+
+</body>
+
+</html>
