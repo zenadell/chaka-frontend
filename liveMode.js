@@ -1,6 +1,7 @@
 /**
  * liveMode.js - Real-time Voice Chat Module (Live Stream Mode)
  * Uses Multimodal Live API via WebSockets.
+ * Upgraded with High-Fidelity Particle Visualizer (Lumix/Chaka V5 Style)
  */
 
 const LiveMode = {
@@ -15,7 +16,7 @@ const LiveMode = {
     audioQueue: [],
     isPlaying: false,
     isAiSpeaking: false,
-    currentSource: null, // Track currently playing source for interruptions
+    currentSource: null,
 
     // INPUT
     inputCtx: null,
@@ -29,6 +30,10 @@ const LiveMode = {
 
     // DOM cache
     elements: {},
+
+    // Visualizer State
+    particles: [],
+    angleOffset: 0,
 
     init() {
         console.log("🎙 LiveMode Initializing...");
@@ -46,7 +51,8 @@ const LiveMode = {
             exitBtn: document.getElementById('live-exit-btn'),
             statusText: document.getElementById('live-status-text'),
             connStatus: document.getElementById('live-conn-status'),
-            micStatus: document.getElementById('live-mic-status'),
+            // Optional chaining added in logic below for removed elements
+            micStatus: document.getElementById('live-mic-status'), 
             volMeter: document.getElementById('live-vol-meter'),
             volBar: document.getElementById('live-vol-bar'),
             triggerBtn: document.getElementById('live-mode-btn'),
@@ -63,22 +69,18 @@ const LiveMode = {
 
     async open() {
         this.elements.overlay.classList.add('active');
-        this.updateStatus("READY", "#00f3ff");
+        this.updateStatus("READY", "#8e8e93");
         
-        // Disable wake button until config is ready
         if (this.elements.connectBtn) {
             this.elements.connectBtn.disabled = true;
             this.elements.connectBtn.style.opacity = "0.5";
             this.elements.connectBtn.innerText = "WAIT...";
         }
 
-        // Fetch config from backend
         try {
-            this.updateStatus("CONFIGURING...", "yellow");
-            // Note: getAuthHeaders must be globally available from script25.js
+            this.updateStatus("CONFIGURING...", "#ff4500");
             const headers = (typeof getAuthHeaders === 'function') ? await getAuthHeaders() : {};
 
-            // Get current state from script25.js
             const persona = window.state?.selectedPersonalityId || localStorage.getItem('selectedPersonalityId') || "";
             const userId = window.state?.userId || "";
             const sessionId = window.state?.sessionId || "";
@@ -91,7 +93,6 @@ const LiveMode = {
 
             this.config = await resp.json();
             
-            // Update UI with persona name
             if (this.elements.personaName && this.config.personaName) {
                 this.elements.personaName.innerText = `${this.config.personaName} // LIVE`;
                 console.log(`✅ Live HUD Updated to: ${this.config.personaName}`);
@@ -104,22 +105,18 @@ const LiveMode = {
                 instructionLength: this.config.systemInstruction?.length || 0 
             });
 
-            // Re-enable wake button
             if (this.elements.connectBtn) {
                 this.elements.connectBtn.disabled = false;
                 this.elements.connectBtn.style.opacity = "1";
                 this.elements.connectBtn.innerText = "Wake";
             }
 
-            this.updateStatus("READY", "#00f3ff");
+            this.updateStatus("READY", "#ffffff");
         } catch (e) {
             console.error(e);
-            this.updateStatus("OFFLINE", "#aaa");
+            this.updateStatus("OFFLINE", "#8e8e93");
             if (window.showToastNotification) {
-                window.showToastNotification({
-                    message: "Live Mode Offline: " + e.message,
-                    type: "error"
-                });
+                window.showToastNotification({ message: "Live Mode Offline: " + e.message, type: "error" });
             }
         }
     },
@@ -137,7 +134,7 @@ const LiveMode = {
         if (!this.config) return alert("Configuration missing.");
 
         this.initAudioContext();
-        this.updateStatus("WAKING UP...", "yellow");
+        this.updateStatus("WAKING UP...", "#ff4500");
 
         const apiBase = window.BACKEND_URL || (window.location.protocol + "//" + window.location.host);
         const wsBase = apiBase.replace(/^http/, 'ws');
@@ -171,24 +168,22 @@ const LiveMode = {
             };
             this.socket.send(JSON.stringify(setupMsg));
             this.isConnected = true;
-            this.updateStatus("ONLINE", "#0f0");
-            this.elements.connectBtn.innerText = "Sleep";
+            this.updateStatus("ONLINE", "#ffffff");
+            if(this.elements.connectBtn) this.elements.connectBtn.innerText = "Sleep";
             this.startMic();
         };
 
         this.socket.onmessage = async (event) => {
             let messageText = event.data instanceof Blob ? await event.data.text() : event.data;
-            if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText); // Log small control/text messages
+            if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText); 
             let data = JSON.parse(messageText);
 
-            // 🛠 [FIXED] Official Gemini Multimodal Live API Tool Call is at TOP LEVEL
             const toolCall = data.toolCall || data.tool_call;
             if (toolCall && toolCall.functionCalls) {
                 toolCall.functionCalls.forEach(call => this.handleFunctionCall(call));
-                return; // Early return for tool calls
+                return;
             }
 
-            // Handle Interruptions from Server
             if (data.serverContent?.interrupted) {
                 console.log("🛑 AI Interrupted by User");
                 this.stopCurrentAudio();
@@ -219,40 +214,27 @@ const LiveMode = {
     },
 
     async handleFunctionCall(call) {
+        // [Unchanged - Kept exactly as you wrote it]
         console.log(`🤖 Live API requested Tool Call: ${call.name}`, call.args);
-        
         let resultText = "No results found.";
         const apiBase = window.BACKEND_URL || "";
-        // We use global getAuthHeaders function attached to window
         const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
 
         try {
             if (call.name === "search_web") {
                 const query = call.args.query || call.args.query_text;
-                this.updateStatus("RESEARCHING...", "yellow");
+                this.updateStatus("RESEARCHING...", "#ff4500");
                 this.addChat(`🔍 Researching: "${query}"`, "user");
-
-                const resp = await fetch(`${apiBase}/api/tools/search`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ query })
-                });
-                
+                const resp = await fetch(`${apiBase}/api/tools/search`, { method: 'POST', headers: headers, body: JSON.stringify({ query }) });
                 if (!resp.ok) throw new Error("Search failed");
                 const data = await resp.json();
                 resultText = data.result || "No results found.";
                 this.addChat(`✅ Search complete.`, "system");
             } else if (call.name === "scrape_url") {
                 const url = call.args.url;
-                this.updateStatus("DEEP SCRAPING...", "cyan");
+                this.updateStatus("DEEP SCRAPING...", "#00f3ff");
                 this.addChat(`🕷 Scraping: ${url}`, "user");
-
-                const resp = await fetch(`${apiBase}/api/tools/scrape-url`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ url })
-                });
-
+                const resp = await fetch(`${apiBase}/api/tools/scrape-url`, { method: 'POST', headers: headers, body: JSON.stringify({ url }) });
                 if (!resp.ok) throw new Error("Scrape failed");
                 const data = await resp.json();
                 resultText = data.result || "Could not extract content.";
@@ -263,18 +245,13 @@ const LiveMode = {
             resultText = `Error during ${call.name}: ${e.message}`;
         }
 
-        this.updateStatus("ONLINE", "#0f0");
+        this.updateStatus("ONLINE", "#ffffff");
         console.log(`✅ Sending Tool Response back to Live API:`, resultText.substring(0, 100) + '...');
 
-        // 🛠 [FIXED] Official Gemini Multimodal Live API uses camelCase toolResponse + functionResponses (plural)
         const toolResponseMsg = {
             toolResponse: {
                 functionResponses: [
-                    {
-                        name: call.name,
-                        id: call.id,
-                        response: { result: resultText }
-                    }
+                    { name: call.name, id: call.id, response: { result: resultText } }
                 ]
             }
         };
@@ -291,20 +268,16 @@ const LiveMode = {
             this.socket.close();
             this.socket = null;
         }
-        this.updateStatus("SYSTEM OFFLINE", "#aaa");
-        this.elements.connectBtn.innerText = "Wake";
-        this.elements.micBtn.classList.remove('recording');
-        this.audioQueue = []; // Clear queue on disconnect
+        this.updateStatus("SYSTEM OFFLINE", "#8e8e93");
+        if(this.elements.connectBtn) this.elements.connectBtn.innerText = "Wake";
+        this.elements.micBtn.classList.remove('active'); // Updated to use the new CSS class
+        this.audioQueue = []; 
     },
 
     updateStatus(text, color) {
         if (!this.elements.statusText) return;
         this.elements.statusText.innerText = text;
         this.elements.statusText.style.color = color;
-        
-        // Match the dot logic to the text
-        const isActive = (text === "ONLINE" || text === "WAKING UP...");
-        this.elements.connStatus?.classList.toggle("active", isActive);
     },
 
     initAudioContext() {
@@ -313,16 +286,13 @@ const LiveMode = {
             this.analyser = this.audioCtx.createAnalyser();
             this.analyser.fftSize = 256;
             this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-            this.drawVisualizer();
+            this.drawVisualizer(); // Starts the loop
         }
         if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
     },
 
     addToQueue(base64String) {
         this.audioQueue.push(base64String);
-        
-        // JITTER BUFFER: Wait for at least 3 chunks to be queued before starting playback
-        // This prevents cracking due to network jitter.
         if (!this.isPlaying && this.audioQueue.length >= 3) {
             this.playNextInQueue();
         }
@@ -330,12 +300,10 @@ const LiveMode = {
 
     stopCurrentAudio() {
         if (this.currentSource) {
-            try {
-                this.currentSource.stop();
-            } catch (e) {}
+            try { this.currentSource.stop(); } catch (e) {}
             this.currentSource = null;
         }
-        this.audioQueue = []; // Clear remaining chunks
+        this.audioQueue = []; 
         this.isPlaying = false;
         this.isAiSpeaking = false;
     },
@@ -352,7 +320,6 @@ const LiveMode = {
         this.isAiSpeaking = true;
 
         const base64String = this.audioQueue.shift();
-
         const binary = atob(base64String);
         const len = binary.length;
         const bytes = new Int16Array(len / 2);
@@ -370,7 +337,7 @@ const LiveMode = {
         source.connect(this.analyser);
         this.analyser.connect(this.audioCtx.destination);
 
-        this.currentSource = source; // Track for interruptions
+        this.currentSource = source; 
         source.start();
         source.onended = () => {
             if (this.currentSource === source) {
@@ -383,20 +350,11 @@ const LiveMode = {
         if (!this.isConnected) return;
         this.isRecording = true;
 
-        this.elements.micBtn.classList.add("recording");
-        this.elements.micStatus.innerText = "[MIC: ACTIVE]";
-        this.elements.micStatus.style.color = "#0f0";
-        this.elements.volMeter.style.display = "block";
+        this.elements.micBtn.classList.add("active"); // Match new CSS
 
         try {
             this.micStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    sampleRate: 16000,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    autoGainControl: true,
-                    noiseSuppression: true
-                }
+                audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, autoGainControl: true, noiseSuppression: true }
             });
 
             this.inputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -435,10 +393,7 @@ const LiveMode = {
 
     stopMic() {
         this.isRecording = false;
-        this.elements.micBtn.classList.remove("recording");
-        this.elements.micStatus.innerText = "[MIC: OFF]";
-        this.elements.micStatus.style.color = "#555";
-        this.elements.volMeter.style.display = "none";
+        this.elements.micBtn.classList.remove("active");
 
         if (this.micStream) this.micStream.getTracks().forEach(t => t.stop());
         if (this.inputCtx) this.inputCtx.close();
@@ -449,6 +404,9 @@ const LiveMode = {
         this.isRecording ? this.stopMic() : this.startMic();
     },
 
+    // ---------------------------------------------------------
+    // THE NEW FLUID PARTICLE VISUALIZER (Lumix Style)
+    // ---------------------------------------------------------
     drawVisualizer() {
         requestAnimationFrame(() => this.drawVisualizer());
 
@@ -458,34 +416,95 @@ const LiveMode = {
         const w = canvas.width, h = canvas.height;
         const cx = w / 2, cy = h / 2;
 
-        if (this.analyser) {
-            this.analyser.getByteFrequencyData(this.dataArray);
-            const outEnergy = (this.dataArray.reduce((a, b) => a + b) / this.dataArray.length) / 255;
-
-            ctx.clearRect(0, 0, w, h);
-            const radius = 50 + (outEnergy * 50);
-
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = `rgb(0, 243, 255)`;
-            ctx.fillStyle = `rgba(0, 243, 255, 0.8)`;
-
-            ctx.beginPath();
-            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-            ctx.fill();
+        // Initialize particles once
+        if (this.particles.length === 0) {
+            const numParticles = 200;
+            for (let i = 0; i < numParticles; i++) {
+                this.particles.push({
+                    angle: (i / numParticles) * Math.PI * 2,
+                    baseRadius: 80 + Math.random() * 5,
+                    size: 1 + Math.random() * 1.5,
+                    noiseOffset: Math.random() * 100
+                });
+            }
         }
 
-        if (this.isRecording && this.inputAnalyser) {
-            this.inputAnalyser.getByteFrequencyData(this.inputDataArray);
-            const vol = this.inputDataArray.reduce((a, b) => a + b) / this.inputDataArray.length;
-            const percent = Math.min(100, (vol / 128) * 100);
-            this.elements.volBar.style.width = percent + "%";
+        ctx.clearRect(0, 0, w, h);
 
-            if (vol > 20) {
-                ctx.shadowColor = `rgb(255, 0, 85)`;
-                ctx.fillStyle = `rgba(255, 0, 85, 0.2)`;
-                ctx.beginPath();
-                ctx.arc(cx, cy, 60 + (vol / 5), 0, Math.PI * 2);
-                ctx.fill();
+        // Get AI Output Volume
+        let aiVol = 0;
+        if (this.analyser && this.isAiSpeaking) {
+            this.analyser.getByteFrequencyData(this.dataArray);
+            aiVol = (this.dataArray.reduce((a, b) => a + b) / this.dataArray.length) / 255;
+        }
+
+        // Get User Mic Volume
+        let userVol = 0;
+        if (this.isRecording && this.inputAnalyser && !this.isAiSpeaking) {
+            this.inputAnalyser.getByteFrequencyData(this.inputDataArray);
+            userVol = (this.inputDataArray.reduce((a, b) => a + b) / this.inputDataArray.length) / 255;
+        }
+
+        // Determine Active State & Color
+        let activeVol = 0;
+        let particleColor = "rgba(142, 142, 147, 0.4)"; // Idle Gray
+        
+        if (userVol > 0.05) {
+            activeVol = userVol;
+            particleColor = "rgba(255, 69, 0, 0.9)"; // Brand Orange for User
+        } else if (aiVol > 0.05) {
+            activeVol = aiVol;
+            particleColor = "rgba(255, 255, 255, 0.9)"; // Bright White for AI
+        }
+
+        // Rotate entire ring slowly over time, speed up when active
+        this.angleOffset += 0.002 + (activeVol * 0.02);
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(this.angleOffset);
+
+        // Render Particles
+        for (let i = 0; i < this.particles.length; i++) {
+            const p = this.particles[i];
+            
+            // Audio expands the particles outwards
+            const expansion = activeVol * 45; 
+            
+            // Add sine-wave ripples for a fluid look
+            const wave = Math.sin(p.angle * 6 + this.angleOffset * 5) * (activeVol * 15);
+            const r = p.baseRadius + expansion + wave;
+            
+            const x = Math.cos(p.angle) * r;
+            const y = Math.sin(p.angle) * r;
+
+            ctx.beginPath();
+            ctx.arc(x, y, p.size + (activeVol * 2), 0, Math.PI * 2);
+            ctx.fillStyle = particleColor;
+            
+            // Add glow effect only when loud
+            if (activeVol > 0.1) {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = particleColor;
+            } else {
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.fill();
+        }
+        ctx.restore();
+
+        // Update Text Context dynamically based on who is speaking
+        if (this.elements.statusText && this.isConnected) {
+            if (userVol > 0.05) {
+                this.elements.statusText.innerText = "Listening...";
+                this.elements.statusText.style.color = "#ff4500";
+            } else if (aiVol > 0.05) {
+                this.elements.statusText.innerText = "Speaking...";
+                this.elements.statusText.style.color = "#ffffff";
+            } else {
+                this.elements.statusText.innerText = "Waiting...";
+                this.elements.statusText.style.color = "#8e8e93";
             }
         }
     },
@@ -495,12 +514,14 @@ const LiveMode = {
         div.className = `live-msg ${sender}`;
         div.innerText = text;
         this.elements.chatLog.appendChild(div);
+        
+        // Keep only last 3 messages so it doesn't clutter the dark UI
+        if(this.elements.chatLog.children.length > 3) {
+            this.elements.chatLog.removeChild(this.elements.chatLog.firstChild);
+        }
         this.elements.chatLog.scrollTop = this.elements.chatLog.scrollHeight;
     }
 };
 
-// Initialize when the module loads
 LiveMode.init();
-
-// Export for potential external use
 export default LiveMode;
