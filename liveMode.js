@@ -1,6 +1,7 @@
 /**
  * liveMode.js - V5 Expressive Face HUD
- * Full face visualizer with autonomous emotion expression via Gemini tool calls.
+ * ORIGINAL working WebSocket/Audio/Mic logic preserved exactly.
+ * Only changes: visualizer replaced with expressive face + emotion tool handler added.
  * Uses Multimodal Live API via WebSocket proxy.
  */
 
@@ -128,11 +129,15 @@ const LiveMode = {
     attachListeners() {
         this.elements.triggerBtn?.addEventListener('click', () => this.open());
         this.elements.exitBtn?.addEventListener('click', () => this.close());
-        this.elements.micBtn?.addEventListener('click', () => this.handleMicClick());
-        
+        // Mic button = pure toggle, same as original
+        this.elements.micBtn?.addEventListener('click', () => this.toggleMic());
+
         // Menu system
         this.elements.menuBtn?.addEventListener('click', () => this.toggleMenu());
-        this.elements.menuBackdrop?.addEventListener('click', () => this.closeMenu());
+        this.elements.menuBackdrop?.addEventListener('click', () => {
+            this.closeMenu();
+            this.closeKeyboard();
+        });
         this.elements.keyboardToggle?.addEventListener('click', () => this.openKeyboard());
         this.elements.backToChat?.addEventListener('click', () => this.close());
 
@@ -144,7 +149,6 @@ const LiveMode = {
 
         // Voice select sync
         this.elements.voiceSelect?.addEventListener('change', () => {
-            // Will be applied on next connect
             console.log(`🎤 Live voice changed to: ${this.elements.voiceSelect.value}`);
         });
 
@@ -156,19 +160,18 @@ const LiveMode = {
     },
 
     // ========================
-    // LIFECYCLE
+    // LIFECYCLE (mirrors original exactly — auto-connect on open)
     // ========================
     async open() {
         this.elements.overlay.classList.add('active');
-        this.updateStatus("CONFIGURING...");
+        this.updateStatus("CONFIGURING...", "#ff4500");
 
-        // Sync voice select with global setting
+        // Sync voice select
         const globalVoice = window.botConfig?.ttsVoiceId || 'Puck';
         if (this.elements.voiceSelect) {
             this.elements.voiceSelect.value = globalVoice;
         }
 
-        // Fetch config from backend
         try {
             const headers = (typeof getAuthHeaders === 'function') ? await getAuthHeaders() : {};
             const persona = window.state?.selectedPersonalityId || localStorage.getItem('selectedPersonalityId') || "";
@@ -185,6 +188,7 @@ const LiveMode = {
 
             if (this.elements.personaName && this.config.personaName) {
                 this.elements.personaName.innerText = `${this.config.personaName} // LIVE`;
+                console.log(`✅ Live HUD Updated to: ${this.config.personaName}`);
             }
 
             console.log("💎 Live Mode Config Loaded:", {
@@ -193,19 +197,16 @@ const LiveMode = {
                 instructionLength: this.config.systemInstruction?.length || 0
             });
 
-            this.updateStatus("READY");
+            this.updateStatus("READY", "#ffffff");
 
-            // Auto-connect
+            // Auto-connect immediately after config loads
             await this.connect();
 
         } catch (e) {
             console.error(e);
-            this.updateStatus("OFFLINE");
+            this.updateStatus("OFFLINE", "#8e8e93");
             if (window.showToastNotification) {
-                window.showToastNotification({
-                    message: "Live Mode Offline: " + e.message,
-                    type: "error"
-                });
+                window.showToastNotification({ message: "Live Mode Offline: " + e.message, type: "error" });
             }
         }
     },
@@ -218,31 +219,13 @@ const LiveMode = {
     },
 
     // ========================
-    // MIC CLICK HANDLER (Auto-connect + toggle)
-    // ========================
-    async handleMicClick() {
-        if (!this.isConnected) {
-            // First click: connect + start mic
-            if (this.config) {
-                await this.connect();
-            } else {
-                this.updateStatus("NO CONFIG");
-            }
-        } else {
-            // Already connected: toggle mic
-            this.toggleMic();
-        }
-    },
-
-    // ========================
-    // WEBSOCKET CONNECTION
+    // WEBSOCKET CONNECTION (mirrors original EXACTLY)
     // ========================
     async connect() {
         if (!this.config) return;
 
         this.initAudioContext();
-        this.updateStatus("WAKING UP...");
-        this.triggerEmotion('thinking');
+        this.updateStatus("WAKING UP...", "#ff4500");
 
         const apiBase = window.BACKEND_URL || (window.location.protocol + "//" + window.location.host);
         const wsBase = apiBase.replace(/^http/, 'ws');
@@ -252,8 +235,7 @@ const LiveMode = {
             this.socket = new WebSocket(WS_URL);
         } catch (e) {
             console.error(e);
-            this.updateStatus("CONNECTION FAILED");
-            this.triggerEmotion('sad');
+            this.updateStatus("CONNECTION FAILED", "red");
             return;
         }
 
@@ -278,9 +260,9 @@ const LiveMode = {
             };
             this.socket.send(JSON.stringify(setupMsg));
             this.isConnected = true;
-            this.updateStatus("ONLINE");
+            this.updateStatus("ONLINE", "#ffffff");
             this.triggerEmotion('neutral');
-            this.elements.micBtn.classList.add('active');
+            // Auto-start mic on connect (same as original)
             this.startMic();
         };
 
@@ -298,16 +280,8 @@ const LiveMode = {
 
             // Handle interruptions
             if (data.serverContent?.interrupted) {
-                console.log("🛑 AI Interrupted");
+                console.log("🛑 AI Interrupted by User");
                 this.stopCurrentAudio();
-                return;
-            }
-
-            // Handle turnComplete — flush any remaining audio in queue
-            if (data.serverContent?.turnComplete) {
-                if (!this.isPlaying && this.audioQueue.length > 0) {
-                    this.playNextInQueue();
-                }
                 return;
             }
 
@@ -322,12 +296,18 @@ const LiveMode = {
                     }
                 }
             }
+
+            // Handle turnComplete — flush remaining audio
+            if (data.serverContent?.turnComplete) {
+                if (!this.isPlaying && this.audioQueue.length > 0) {
+                    this.playNextInQueue();
+                }
+            }
         };
 
         this.socket.onerror = (e) => {
             console.error("❌ WebSocket Error:", e);
-            this.updateStatus("ERROR");
-            this.triggerEmotion('sad');
+            this.updateStatus("CONNECTION ERROR", "red");
         };
 
         this.socket.onclose = (e) => {
@@ -337,84 +317,59 @@ const LiveMode = {
     },
 
     // ========================
-    // TOOL CALL HANDLER (Emotion + Search + Scrape)
+    // TOOL CALL HANDLER (Original + express_emotion added)
     // ========================
     async handleFunctionCall(call) {
-        console.log(`🤖 Live Tool Call: ${call.name}`, call.args);
-
-        let resultText = "Done.";
+        console.log(`🤖 Live API requested Tool Call: ${call.name}`, call.args);
+        let resultText = "No results found.";
         const apiBase = window.BACKEND_URL || "";
-        let headers;
-        try {
-            headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : { 'Content-Type': 'application/json' };
-        } catch (e) {
-            headers = { 'Content-Type': 'application/json' };
-        }
+        const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
 
         try {
             if (call.name === "express_emotion") {
-                // ============================================
                 // AUTONOMOUS EMOTION EXPRESSION
-                // Chaka decides what she feels. We just render it.
-                // ============================================
                 const emotion = call.args?.emotion || 'neutral';
                 const validEmotions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'thinking'];
                 if (validEmotions.includes(emotion)) {
                     this.triggerEmotion(emotion);
                     console.log(`😊 Chaka feels: ${emotion}`);
                 }
-                resultText = `Emotion "${emotion}" is now being displayed on your face.`;
+                resultText = `Emotion "${emotion}" displayed.`;
 
             } else if (call.name === "search_web") {
                 const query = call.args.query || call.args.query_text;
-                this.updateStatus("RESEARCHING...");
+                this.updateStatus("RESEARCHING...", "#ff4500");
                 this.triggerEmotion('thinking');
-                this.addChat(`🔍 Researching: "${query}"`, "system");
-
-                const resp = await fetch(`${apiBase}/api/tools/search`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ query })
-                });
-
+                this.addChat(`🔍 Researching: "${query}"`, "user");
+                const resp = await fetch(`${apiBase}/api/tools/search`, { method: 'POST', headers: headers, body: JSON.stringify({ query }) });
                 if (!resp.ok) throw new Error("Search failed");
                 const data = await resp.json();
                 resultText = data.result || "No results found.";
                 this.addChat(`✅ Search complete.`, "system");
-                this.updateStatus("ONLINE");
 
             } else if (call.name === "scrape_url") {
                 const url = call.args.url;
-                this.updateStatus("SCRAPING...");
+                this.updateStatus("DEEP SCRAPING...", "#00f3ff");
                 this.triggerEmotion('thinking');
-                this.addChat(`🕷 Scraping: ${url}`, "system");
-
-                const resp = await fetch(`${apiBase}/api/tools/scrape-url`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ url })
-                });
-
+                this.addChat(`🕷 Scraping: ${url}`, "user");
+                const resp = await fetch(`${apiBase}/api/tools/scrape-url`, { method: 'POST', headers: headers, body: JSON.stringify({ url }) });
                 if (!resp.ok) throw new Error("Scrape failed");
                 const data = await resp.json();
                 resultText = data.result || "Could not extract content.";
-                this.addChat(`✅ Scrape complete.`, "system");
-                this.updateStatus("ONLINE");
+                this.addChat(`✅ Deep Scrape complete.`, "system");
             }
         } catch (e) {
             console.error("Tool execution error:", e);
             resultText = `Error during ${call.name}: ${e.message}`;
-            this.updateStatus("ONLINE");
         }
 
-        // Send tool response back to Gemini
+        this.updateStatus("ONLINE", "#ffffff");
+
         const toolResponseMsg = {
             toolResponse: {
-                functionResponses: [{
-                    name: call.name,
-                    id: call.id,
-                    response: { result: resultText }
-                }]
+                functionResponses: [
+                    { name: call.name, id: call.id, response: { result: resultText } }
+                ]
             }
         };
 
@@ -424,7 +379,7 @@ const LiveMode = {
     },
 
     // ========================
-    // DISCONNECT
+    // DISCONNECT (mirrors original EXACTLY)
     // ========================
     disconnect() {
         this.isConnected = false;
@@ -433,31 +388,21 @@ const LiveMode = {
             this.socket.close();
             this.socket = null;
         }
-        this.updateStatus("SYSTEM READY");
+        this.updateStatus("SYSTEM READY", "#8e8e93");
         this.triggerEmotion('neutral');
         this.elements.micBtn?.classList.remove('active');
         this.audioQueue = [];
     },
 
-    updateStatus(text) {
+    // Original updateStatus signature preserved (text, color)
+    updateStatus(text, color) {
         if (!this.elements.statusText) return;
         this.elements.statusText.innerText = text;
-        // Color coding
-        if (text === "ONLINE" || text === "LISTENING...") {
-            this.elements.statusText.style.color = "#00f3ff";
-        } else if (text === "SPEAKING...") {
-            this.elements.statusText.style.color = "#ff4500";
-        } else if (text === "THINKING..." || text === "RESEARCHING..." || text === "SCRAPING..." || text === "CONFIGURING..." || text === "WAKING UP...") {
-            this.elements.statusText.style.color = "#b832ff";
-        } else if (text === "ERROR" || text === "CONNECTION FAILED" || text === "OFFLINE") {
-            this.elements.statusText.style.color = "#ff3333";
-        } else {
-            this.elements.statusText.style.color = "#8e8e93";
-        }
+        this.elements.statusText.style.color = color;
     },
 
     // ========================
-    // AUDIO CONTEXT
+    // AUDIO CONTEXT (mirrors original EXACTLY)
     // ========================
     initAudioContext() {
         if (!this.audioCtx) {
@@ -465,13 +410,13 @@ const LiveMode = {
             this.analyser = this.audioCtx.createAnalyser();
             this.analyser.fftSize = 256;
             this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-            this.drawFace();
+            this.drawFace(); // Starts the render loop (replaces drawVisualizer)
         }
         if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
     },
 
     // ========================
-    // AUDIO QUEUE (FIFO - unchanged logic)
+    // AUDIO QUEUE (mirrors original EXACTLY)
     // ========================
     addToQueue(base64String) {
         this.audioQueue.push(base64String);
@@ -495,13 +440,11 @@ const LiveMode = {
             this.isPlaying = false;
             this.isAiSpeaking = false;
             this.currentSource = null;
-            this.updateStatus("LISTENING...");
             return;
         }
 
         this.isPlaying = true;
         this.isAiSpeaking = true;
-        this.updateStatus("SPEAKING...");
 
         const base64String = this.audioQueue.shift();
         const binary = atob(base64String);
@@ -531,23 +474,17 @@ const LiveMode = {
     },
 
     // ========================
-    // MIC INPUT
+    // MIC INPUT (mirrors original EXACTLY — same btoa, same flow)
     // ========================
     async startMic() {
         if (!this.isConnected) return;
         this.isRecording = true;
-        this.elements.micBtn?.classList.add('active');
-        this.updateStatus("LISTENING...");
+
+        this.elements.micBtn.classList.add("active");
 
         try {
             this.micStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    sampleRate: 16000,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    autoGainControl: true,
-                    noiseSuppression: true
-                }
+                audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, autoGainControl: true, noiseSuppression: true }
             });
 
             this.inputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -571,29 +508,23 @@ const LiveMode = {
                     let s = Math.max(-1, Math.min(1, inputData[i]));
                     pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                 }
-                // Convert to base64 safely (chunked to avoid stack overflow)
-                const uint8 = new Uint8Array(pcmData.buffer);
-                let binaryStr = '';
-                for (let i = 0; i < uint8.length; i++) {
-                    binaryStr += String.fromCharCode(uint8[i]);
-                }
-                const base64Audio = btoa(binaryStr);
+                const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)));
                 this.socket.send(JSON.stringify({
                     realtime_input: { media_chunks: [{ mime_type: "audio/pcm", data: base64Audio }] }
                 }));
             };
+
         } catch (e) {
             console.error(e);
             this.stopMic();
-            if (window.showToastNotification) {
-                window.showToastNotification({ message: "Mic Error: " + e.message, type: "error" });
-            }
+            alert("Mic Error: " + e.message);
         }
     },
 
     stopMic() {
         this.isRecording = false;
-        this.elements.micBtn?.classList.remove('active');
+        this.elements.micBtn.classList.remove("active");
+
         if (this.micStream) this.micStream.getTracks().forEach(t => t.stop());
         if (this.inputCtx) this.inputCtx.close();
         if (this.processor) this.processor.disconnect();
@@ -604,22 +535,23 @@ const LiveMode = {
     },
 
     // ========================
-    // CHAT LOG
+    // CHAT LOG (mirrors original EXACTLY)
     // ========================
     addChat(text, sender) {
-        if (!this.elements.chatLog) return;
         const div = document.createElement("div");
         div.className = `live-msg ${sender}`;
         div.innerText = text;
         this.elements.chatLog.appendChild(div);
-        // Keep max 4 messages visible
-        while (this.elements.chatLog.children.length > 4) {
+
+        // Keep only last 3 messages
+        if (this.elements.chatLog.children.length > 3) {
             this.elements.chatLog.removeChild(this.elements.chatLog.firstChild);
         }
+        this.elements.chatLog.scrollTop = this.elements.chatLog.scrollHeight;
     },
 
     // ========================
-    // KEYBOARD INPUT
+    // KEYBOARD INPUT (NEW — added for menu)
     // ========================
     openKeyboard() {
         this.closeMenu();
@@ -647,7 +579,6 @@ const LiveMode = {
 
         this.addChat(`"${text}"`, "user");
 
-        // Send as text to Gemini via WebSocket
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify({
                 client_content: {
@@ -659,7 +590,7 @@ const LiveMode = {
     },
 
     // ========================
-    // MENU SYSTEM
+    // MENU SYSTEM (NEW — added for settings panel)
     // ========================
     toggleMenu() {
         this.menuOpen ? this.closeMenu() : this.openMenu();
@@ -681,7 +612,7 @@ const LiveMode = {
     },
 
     // ========================
-    // GAZE TRACKING
+    // GAZE TRACKING (NEW — face feature)
     // ========================
     updateGazeTarget(clientX, clientY) {
         this.lastInteractionTime = Date.now();
@@ -693,11 +624,10 @@ const LiveMode = {
     },
 
     // ========================
-    // EMOTION ENGINE
+    // EMOTION ENGINE (NEW — driven by express_emotion tool)
     // ========================
     triggerEmotion(emo) {
         if (!this.emotions[emo]) return;
-        if (this.currentEmotion === emo) return;
         this.currentEmotion = emo;
     },
 
@@ -708,7 +638,7 @@ const LiveMode = {
     },
 
     // ========================
-    // FACE RENDERER (Full cklive-9 port)
+    // FACE RENDERER (replaces drawVisualizer — same volume logic)
     // ========================
     drawFace() {
         requestAnimationFrame(() => this.drawFace());
@@ -722,20 +652,33 @@ const LiveMode = {
 
         ctx.clearRect(0, 0, w, h);
 
-        // --- VOLUME ANALYSIS ---
-        let vol = 0;
-
-        // AI output audio volume
+        // --- VOLUME ANALYSIS (same as original drawVisualizer) ---
+        let aiVol = 0;
         if (this.analyser && this.isAiSpeaking) {
             this.analyser.getByteFrequencyData(this.dataArray);
-            vol = (this.dataArray.reduce((a, b) => a + b) / this.dataArray.length) / 255;
+            aiVol = (this.dataArray.reduce((a, b) => a + b) / this.dataArray.length) / 255;
         }
 
-        // User mic volume (when not AI speaking)
+        let userVol = 0;
         if (this.isRecording && this.inputAnalyser && !this.isAiSpeaking) {
             this.inputAnalyser.getByteFrequencyData(this.inputDataArray);
-            const micVol = (this.inputDataArray.reduce((a, b) => a + b) / this.inputDataArray.length) / 255;
-            vol = micVol;
+            userVol = (this.inputDataArray.reduce((a, b) => a + b) / this.inputDataArray.length) / 255;
+        }
+
+        let vol = Math.max(aiVol, userVol);
+
+        // --- STATUS TEXT (same as original drawVisualizer) ---
+        if (this.elements.statusText && this.isConnected) {
+            if (userVol > 0.05) {
+                this.elements.statusText.innerText = "Listening...";
+                this.elements.statusText.style.color = "#ff4500";
+            } else if (aiVol > 0.05) {
+                this.elements.statusText.innerText = "Speaking...";
+                this.elements.statusText.style.color = "#ffffff";
+            } else {
+                this.elements.statusText.innerText = "Waiting...";
+                this.elements.statusText.style.color = "#8e8e93";
+            }
         }
 
         // --- CONTEXTUAL TRACKING ---
@@ -743,18 +686,15 @@ const LiveMode = {
         let headTilt = 0;
 
         if (vol > 0.08 && !this.isAiSpeaking) {
-            // User speaking — snap attention to center
             this.targetX = 0;
             this.targetY = 0;
             headTilt = 0;
             this.lastInteractionTime = now;
         } else if (this.currentEmotion === 'thinking') {
-            // Thinking — look up-right
             this.targetX = 18;
             this.targetY = -22;
             headTilt = 0.1;
         } else if (isIdle) {
-            // Idle wandering + micro-saccades
             this.saccadeTimer--;
             if (this.saccadeTimer <= 0) {
                 if (Math.random() < 0.03) {
@@ -809,7 +749,6 @@ const LiveMode = {
             if (Math.random() < 0.005 && this.currentEmotion !== 'thinking') this.isBlinking = true;
         }
 
-        // Tracking speed
         const trackingSpeed = isIdle ? 0.04 : 0.08;
         this.currentEyeX += (this.targetX - this.currentEyeX) * trackingSpeed;
         this.currentEyeY += (this.targetY - this.currentEyeY) * trackingSpeed;
@@ -902,8 +841,5 @@ const LiveMode = {
     }
 };
 
-// Initialize when the module loads
 LiveMode.init();
-
-// Export for potential external use
 export default LiveMode;
