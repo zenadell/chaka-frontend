@@ -1,7 +1,7 @@
 /**
- * liveMode.js - Real-time Voice Chat Module (Live Stream Mode)
- * Uses Multimodal Live API via WebSockets.
- * Upgraded with High-Fidelity Particle Visualizer (Lumix/Chaka V5 Style)
+ * liveMode.js - V5 Expressive Face HUD
+ * Full face visualizer with autonomous emotion expression via Gemini tool calls.
+ * Uses Multimodal Live API via WebSocket proxy.
  */
 
 const LiveMode = {
@@ -31,12 +31,72 @@ const LiveMode = {
     // DOM cache
     elements: {},
 
-    // Visualizer State
-    particles: [],
-    angleOffset: 0,
+    // ========================
+    // FACE VISUALIZER STATE
+    // ========================
+    currentEmotion: 'neutral',
+    eyeParams: { rot: 0, scaleY: 1, bend: 0, width: 12, height: 32, shiftX: 0, shiftY: 0 },
+    currentColors: {
+        core: [0, 243, 255],
+        mid: [0, 100, 255],
+        edge: [255, 69, 0],
+        shadow: [0, 100, 255]
+    },
 
+    emotions: {
+        neutral: {
+            rot: 0, scaleY: 1, bend: 0, width: 12, height: 32, shiftX: 0, shiftY: 0,
+            colors: { core: [0, 243, 255], mid: [0, 100, 255], edge: [255, 69, 0], shadow: [0, 100, 255] }
+        },
+        angry: {
+            rot: 0.65, scaleY: 1, bend: 0, width: 14, height: 40, shiftX: -1, shiftY: 6,
+            colors: { core: [255, 50, 0], mid: [200, 0, 0], edge: [100, 0, 0], shadow: [255, 0, 0] }
+        },
+        sad: {
+            rot: -0.4, scaleY: 1, bend: 0, width: 12, height: 32, shiftX: -2, shiftY: -2,
+            colors: { core: [0, 100, 255], mid: [0, 50, 200], edge: [0, 20, 100], shadow: [0, 50, 255] }
+        },
+        happy: {
+            rot: 0, scaleY: 1, bend: -15, width: 24, height: 8, shiftX: 0, shiftY: 4,
+            colors: { core: [0, 243, 255], mid: [0, 100, 255], edge: [255, 69, 0], shadow: [0, 100, 255] }
+        },
+        surprised: {
+            rot: 0, scaleY: 1, bend: 0, width: 20, height: 20, shiftX: 0, shiftY: -4,
+            colors: { core: [255, 200, 0], mid: [255, 100, 0], edge: [200, 50, 0], shadow: [255, 150, 0] }
+        },
+        thinking: {
+            rot: 0, scaleY: 0.8, bend: 0, width: 12, height: 28, shiftX: 0, shiftY: 0,
+            colors: { core: [180, 50, 255], mid: [120, 0, 220], edge: [60, 0, 150], shadow: [150, 50, 255] }
+        }
+    },
+
+    // Blink engine
+    isBlinking: false,
+    blinkScale: 1,
+
+    // Gaze tracking
+    targetX: 0, targetY: 0,
+    currentEyeX: 0, currentEyeY: 0,
+    currentTilt: 0,
+    lastInteractionTime: Date.now(),
+
+    // Micro-saccades
+    saccadeTimer: 0,
+    saccadeTargetX: 0,
+    saccadeTargetY: 0,
+
+    // Frame clock
+    time: 0,
+
+    // Menu state
+    menuOpen: false,
+    keyboardOpen: false,
+
+    // ========================
+    // INITIALIZATION
+    // ========================
     init() {
-        console.log("🎙 LiveMode Initializing...");
+        console.log("🎙 LiveMode V5 (Expressive Face) Initializing...");
         this.cacheElements();
         this.attachListeners();
     },
@@ -47,94 +107,142 @@ const LiveMode = {
             visualizer: document.getElementById('live-visualizer'),
             chatLog: document.getElementById('live-chat-log'),
             micBtn: document.getElementById('live-mic-btn'),
-            connectBtn: document.getElementById('live-connect-btn'),
             exitBtn: document.getElementById('live-exit-btn'),
             statusText: document.getElementById('live-status-text'),
-            connStatus: document.getElementById('live-conn-status'),
-            // Optional chaining added in logic below for removed elements
-            micStatus: document.getElementById('live-mic-status'), 
-            volMeter: document.getElementById('live-vol-meter'),
-            volBar: document.getElementById('live-vol-bar'),
+            personaName: document.getElementById('live-persona-name'),
             triggerBtn: document.getElementById('live-mode-btn'),
-            personaName: document.getElementById('live-persona-name')
+            // Menu elements
+            menuBtn: document.getElementById('live-menu-btn'),
+            menuPanel: document.getElementById('live-menu-panel'),
+            menuBackdrop: document.getElementById('live-menu-backdrop'),
+            keyboardToggle: document.getElementById('live-keyboard-toggle'),
+            backToChat: document.getElementById('live-back-to-chat'),
+            voiceSelect: document.getElementById('live-voice-select'),
+            // Keyboard elements
+            keyboardOverlay: document.getElementById('live-keyboard-overlay'),
+            keyboardInput: document.getElementById('live-keyboard-input'),
+            keyboardSend: document.getElementById('live-keyboard-send'),
         };
     },
 
     attachListeners() {
         this.elements.triggerBtn?.addEventListener('click', () => this.open());
         this.elements.exitBtn?.addEventListener('click', () => this.close());
-        this.elements.connectBtn?.addEventListener('click', () => this.toggleConnection());
-        this.elements.micBtn?.addEventListener('click', () => this.toggleMic());
+        this.elements.micBtn?.addEventListener('click', () => this.handleMicClick());
+        
+        // Menu system
+        this.elements.menuBtn?.addEventListener('click', () => this.toggleMenu());
+        this.elements.menuBackdrop?.addEventListener('click', () => this.closeMenu());
+        this.elements.keyboardToggle?.addEventListener('click', () => this.openKeyboard());
+        this.elements.backToChat?.addEventListener('click', () => this.close());
+
+        // Keyboard input
+        this.elements.keyboardSend?.addEventListener('click', () => this.sendKeyboardMessage());
+        this.elements.keyboardInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.sendKeyboardMessage();
+        });
+
+        // Voice select sync
+        this.elements.voiceSelect?.addEventListener('change', () => {
+            // Will be applied on next connect
+            console.log(`🎤 Live voice changed to: ${this.elements.voiceSelect.value}`);
+        });
+
+        // Gaze tracking
+        window.addEventListener('mousemove', (e) => this.updateGazeTarget(e.clientX, e.clientY));
+        window.addEventListener('touchmove', (e) => this.updateGazeTarget(e.touches[0].clientX, e.touches[0].clientY));
+        window.addEventListener('mouseout', () => { this.targetX = 0; this.targetY = 0; });
+        window.addEventListener('touchend', () => { this.targetX = 0; this.targetY = 0; });
     },
 
+    // ========================
+    // LIFECYCLE
+    // ========================
     async open() {
         this.elements.overlay.classList.add('active');
-        this.updateStatus("READY", "#8e8e93");
-        
-        if (this.elements.connectBtn) {
-            this.elements.connectBtn.disabled = true;
-            this.elements.connectBtn.style.opacity = "0.5";
-            this.elements.connectBtn.innerText = "WAIT...";
+        this.updateStatus("CONFIGURING...");
+
+        // Sync voice select with global setting
+        const globalVoice = window.botConfig?.ttsVoiceId || 'Puck';
+        if (this.elements.voiceSelect) {
+            this.elements.voiceSelect.value = globalVoice;
         }
 
+        // Fetch config from backend
         try {
-            this.updateStatus("CONFIGURING...", "#ff4500");
             const headers = (typeof getAuthHeaders === 'function') ? await getAuthHeaders() : {};
-
             const persona = window.state?.selectedPersonalityId || localStorage.getItem('selectedPersonalityId') || "";
             const userId = window.state?.userId || "";
             const sessionId = window.state?.sessionId || "";
-
             const apiBase = window.BACKEND_URL || "";
-            const voiceId = window.botConfig?.ttsVoiceId || "Puck";
+            const voiceId = this.elements.voiceSelect?.value || globalVoice;
+
             const url = `${apiBase}/api/tools/live/config?persona=${encodeURIComponent(persona)}&userId=${encodeURIComponent(userId)}&sessionId=${encodeURIComponent(sessionId)}&voiceId=${encodeURIComponent(voiceId)}`;
             const resp = await fetch(url, { headers });
             if (!resp.ok) throw new Error("Failed to fetch Live Mode configuration");
 
             this.config = await resp.json();
-            
+
             if (this.elements.personaName && this.config.personaName) {
                 this.elements.personaName.innerText = `${this.config.personaName} // LIVE`;
-                console.log(`✅ Live HUD Updated to: ${this.config.personaName}`);
             }
 
-            console.log("💎 Live Mode Config Loaded:", { 
-                personaId: persona,
+            console.log("💎 Live Mode Config Loaded:", {
                 personaName: this.config.personaName,
                 voiceId: this.config.voiceId,
-                instructionLength: this.config.systemInstruction?.length || 0 
+                instructionLength: this.config.systemInstruction?.length || 0
             });
 
-            if (this.elements.connectBtn) {
-                this.elements.connectBtn.disabled = false;
-                this.elements.connectBtn.style.opacity = "1";
-                this.elements.connectBtn.innerText = "Wake";
-            }
+            this.updateStatus("READY");
 
-            this.updateStatus("READY", "#ffffff");
+            // Auto-connect
+            await this.connect();
+
         } catch (e) {
             console.error(e);
-            this.updateStatus("OFFLINE", "#8e8e93");
+            this.updateStatus("OFFLINE");
             if (window.showToastNotification) {
-                window.showToastNotification({ message: "Live Mode Offline: " + e.message, type: "error" });
+                window.showToastNotification({
+                    message: "Live Mode Offline: " + e.message,
+                    type: "error"
+                });
             }
         }
     },
 
     close() {
         this.disconnect();
+        this.closeMenu();
+        this.closeKeyboard();
         this.elements.overlay.classList.remove('active');
     },
 
-    async toggleConnection() {
-        this.isConnected ? this.disconnect() : await this.connect();
+    // ========================
+    // MIC CLICK HANDLER (Auto-connect + toggle)
+    // ========================
+    async handleMicClick() {
+        if (!this.isConnected) {
+            // First click: connect + start mic
+            if (this.config) {
+                await this.connect();
+            } else {
+                this.updateStatus("NO CONFIG");
+            }
+        } else {
+            // Already connected: toggle mic
+            this.toggleMic();
+        }
     },
 
+    // ========================
+    // WEBSOCKET CONNECTION
+    // ========================
     async connect() {
-        if (!this.config) return alert("Configuration missing.");
+        if (!this.config) return;
 
         this.initAudioContext();
-        this.updateStatus("WAKING UP...", "#ff4500");
+        this.updateStatus("WAKING UP...");
+        this.triggerEmotion('thinking');
 
         const apiBase = window.BACKEND_URL || (window.location.protocol + "//" + window.location.host);
         const wsBase = apiBase.replace(/^http/, 'ws');
@@ -144,11 +252,13 @@ const LiveMode = {
             this.socket = new WebSocket(WS_URL);
         } catch (e) {
             console.error(e);
-            this.updateStatus("CONNECTION FAILED", "red");
+            this.updateStatus("CONNECTION FAILED");
+            this.triggerEmotion('sad');
             return;
         }
 
         this.socket.onopen = () => {
+            const voiceId = this.elements.voiceSelect?.value || this.config.voiceId || "Puck";
             const setupMsg = {
                 setup: {
                     model: this.config.model,
@@ -159,7 +269,7 @@ const LiveMode = {
                         speech_config: {
                             voice_config: {
                                 prebuilt_voice_config: {
-                                    voice_name: this.config.voiceId || "Puck"
+                                    voice_name: voiceId
                                 }
                             }
                         }
@@ -168,28 +278,31 @@ const LiveMode = {
             };
             this.socket.send(JSON.stringify(setupMsg));
             this.isConnected = true;
-            this.updateStatus("ONLINE", "#ffffff");
-            if(this.elements.connectBtn) this.elements.connectBtn.innerText = "Sleep";
+            this.updateStatus("ONLINE");
+            this.triggerEmotion('neutral');
+            this.elements.micBtn.classList.add('active');
             this.startMic();
         };
 
         this.socket.onmessage = async (event) => {
             let messageText = event.data instanceof Blob ? await event.data.text() : event.data;
-            if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText); 
             let data = JSON.parse(messageText);
 
+            // Tool calls (emotion, search, scrape)
             const toolCall = data.toolCall || data.tool_call;
             if (toolCall && toolCall.functionCalls) {
                 toolCall.functionCalls.forEach(call => this.handleFunctionCall(call));
                 return;
             }
 
+            // Handle interruptions
             if (data.serverContent?.interrupted) {
-                console.log("🛑 AI Interrupted by User");
+                console.log("🛑 AI Interrupted");
                 this.stopCurrentAudio();
                 return;
             }
 
+            // Audio + text parts
             if (data.serverContent?.modelTurn?.parts) {
                 for (const part of data.serverContent.modelTurn.parts) {
                     if (part.inlineData?.data) {
@@ -204,7 +317,8 @@ const LiveMode = {
 
         this.socket.onerror = (e) => {
             console.error("❌ WebSocket Error:", e);
-            this.updateStatus("CONNECTION ERROR", "red");
+            this.updateStatus("ERROR");
+            this.triggerEmotion('sad');
         };
 
         this.socket.onclose = (e) => {
@@ -213,46 +327,80 @@ const LiveMode = {
         };
     },
 
+    // ========================
+    // TOOL CALL HANDLER (Emotion + Search + Scrape)
+    // ========================
     async handleFunctionCall(call) {
-        // [Unchanged - Kept exactly as you wrote it]
-        console.log(`🤖 Live API requested Tool Call: ${call.name}`, call.args);
-        let resultText = "No results found.";
+        console.log(`🤖 Live Tool Call: ${call.name}`, call.args);
+
+        let resultText = "Done.";
         const apiBase = window.BACKEND_URL || "";
         const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
 
         try {
-            if (call.name === "search_web") {
+            if (call.name === "express_emotion") {
+                // ============================================
+                // AUTONOMOUS EMOTION EXPRESSION
+                // Chaka decides what she feels. We just render it.
+                // ============================================
+                const emotion = call.args?.emotion || 'neutral';
+                const validEmotions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'thinking'];
+                if (validEmotions.includes(emotion)) {
+                    this.triggerEmotion(emotion);
+                    console.log(`😊 Chaka feels: ${emotion}`);
+                }
+                resultText = `Emotion "${emotion}" is now being displayed on your face.`;
+
+            } else if (call.name === "search_web") {
                 const query = call.args.query || call.args.query_text;
-                this.updateStatus("RESEARCHING...", "#ff4500");
-                this.addChat(`🔍 Researching: "${query}"`, "user");
-                const resp = await fetch(`${apiBase}/api/tools/search`, { method: 'POST', headers: headers, body: JSON.stringify({ query }) });
+                this.updateStatus("RESEARCHING...");
+                this.triggerEmotion('thinking');
+                this.addChat(`🔍 Researching: "${query}"`, "system");
+
+                const resp = await fetch(`${apiBase}/api/tools/search`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ query })
+                });
+
                 if (!resp.ok) throw new Error("Search failed");
                 const data = await resp.json();
                 resultText = data.result || "No results found.";
                 this.addChat(`✅ Search complete.`, "system");
+                this.updateStatus("ONLINE");
+
             } else if (call.name === "scrape_url") {
                 const url = call.args.url;
-                this.updateStatus("DEEP SCRAPING...", "#00f3ff");
-                this.addChat(`🕷 Scraping: ${url}`, "user");
-                const resp = await fetch(`${apiBase}/api/tools/scrape-url`, { method: 'POST', headers: headers, body: JSON.stringify({ url }) });
+                this.updateStatus("SCRAPING...");
+                this.triggerEmotion('thinking');
+                this.addChat(`🕷 Scraping: ${url}`, "system");
+
+                const resp = await fetch(`${apiBase}/api/tools/scrape-url`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ url })
+                });
+
                 if (!resp.ok) throw new Error("Scrape failed");
                 const data = await resp.json();
                 resultText = data.result || "Could not extract content.";
-                this.addChat(`✅ Deep Scrape complete.`, "system");
+                this.addChat(`✅ Scrape complete.`, "system");
+                this.updateStatus("ONLINE");
             }
         } catch (e) {
             console.error("Tool execution error:", e);
             resultText = `Error during ${call.name}: ${e.message}`;
+            this.updateStatus("ONLINE");
         }
 
-        this.updateStatus("ONLINE", "#ffffff");
-        console.log(`✅ Sending Tool Response back to Live API:`, resultText.substring(0, 100) + '...');
-
+        // Send tool response back to Gemini
         const toolResponseMsg = {
             toolResponse: {
-                functionResponses: [
-                    { name: call.name, id: call.id, response: { result: resultText } }
-                ]
+                functionResponses: [{
+                    name: call.name,
+                    id: call.id,
+                    response: { result: resultText }
+                }]
             }
         };
 
@@ -261,6 +409,9 @@ const LiveMode = {
         }
     },
 
+    // ========================
+    // DISCONNECT
+    // ========================
     disconnect() {
         this.isConnected = false;
         this.stopMic();
@@ -268,29 +419,46 @@ const LiveMode = {
             this.socket.close();
             this.socket = null;
         }
-        this.updateStatus("SYSTEM OFFLINE", "#8e8e93");
-        if(this.elements.connectBtn) this.elements.connectBtn.innerText = "Wake";
-        this.elements.micBtn.classList.remove('active'); // Updated to use the new CSS class
-        this.audioQueue = []; 
+        this.updateStatus("SYSTEM READY");
+        this.triggerEmotion('neutral');
+        this.elements.micBtn?.classList.remove('active');
+        this.audioQueue = [];
     },
 
-    updateStatus(text, color) {
+    updateStatus(text) {
         if (!this.elements.statusText) return;
         this.elements.statusText.innerText = text;
-        this.elements.statusText.style.color = color;
+        // Color coding
+        if (text === "ONLINE" || text === "LISTENING...") {
+            this.elements.statusText.style.color = "#00f3ff";
+        } else if (text === "SPEAKING...") {
+            this.elements.statusText.style.color = "#ff4500";
+        } else if (text === "THINKING..." || text === "RESEARCHING..." || text === "SCRAPING..." || text === "CONFIGURING..." || text === "WAKING UP...") {
+            this.elements.statusText.style.color = "#b832ff";
+        } else if (text === "ERROR" || text === "CONNECTION FAILED" || text === "OFFLINE") {
+            this.elements.statusText.style.color = "#ff3333";
+        } else {
+            this.elements.statusText.style.color = "#8e8e93";
+        }
     },
 
+    // ========================
+    // AUDIO CONTEXT
+    // ========================
     initAudioContext() {
         if (!this.audioCtx) {
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             this.analyser = this.audioCtx.createAnalyser();
             this.analyser.fftSize = 256;
             this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-            this.drawVisualizer(); // Starts the loop
+            this.drawFace();
         }
         if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
     },
 
+    // ========================
+    // AUDIO QUEUE (FIFO - unchanged logic)
+    // ========================
     addToQueue(base64String) {
         this.audioQueue.push(base64String);
         if (!this.isPlaying && this.audioQueue.length >= 3) {
@@ -303,7 +471,7 @@ const LiveMode = {
             try { this.currentSource.stop(); } catch (e) {}
             this.currentSource = null;
         }
-        this.audioQueue = []; 
+        this.audioQueue = [];
         this.isPlaying = false;
         this.isAiSpeaking = false;
     },
@@ -313,11 +481,13 @@ const LiveMode = {
             this.isPlaying = false;
             this.isAiSpeaking = false;
             this.currentSource = null;
+            this.updateStatus("LISTENING...");
             return;
         }
 
         this.isPlaying = true;
         this.isAiSpeaking = true;
+        this.updateStatus("SPEAKING...");
 
         const base64String = this.audioQueue.shift();
         const binary = atob(base64String);
@@ -337,7 +507,7 @@ const LiveMode = {
         source.connect(this.analyser);
         this.analyser.connect(this.audioCtx.destination);
 
-        this.currentSource = source; 
+        this.currentSource = source;
         source.start();
         source.onended = () => {
             if (this.currentSource === source) {
@@ -346,15 +516,24 @@ const LiveMode = {
         };
     },
 
+    // ========================
+    // MIC INPUT
+    // ========================
     async startMic() {
         if (!this.isConnected) return;
         this.isRecording = true;
-
-        this.elements.micBtn.classList.add("active"); // Match new CSS
+        this.elements.micBtn?.classList.add('active');
+        this.updateStatus("LISTENING...");
 
         try {
             this.micStream = await navigator.mediaDevices.getUserMedia({
-                audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, autoGainControl: true, noiseSuppression: true }
+                audio: {
+                    sampleRate: 16000,
+                    channelCount: 1,
+                    echoCancellation: true,
+                    autoGainControl: true,
+                    noiseSuppression: true
+                }
             });
 
             this.inputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -383,18 +562,18 @@ const LiveMode = {
                     realtime_input: { media_chunks: [{ mime_type: "audio/pcm", data: base64Audio }] }
                 }));
             };
-
         } catch (e) {
             console.error(e);
             this.stopMic();
-            alert("Mic Error: " + e.message);
+            if (window.showToastNotification) {
+                window.showToastNotification({ message: "Mic Error: " + e.message, type: "error" });
+            }
         }
     },
 
     stopMic() {
         this.isRecording = false;
-        this.elements.micBtn.classList.remove("active");
-
+        this.elements.micBtn?.classList.remove('active');
         if (this.micStream) this.micStream.getTracks().forEach(t => t.stop());
         if (this.inputCtx) this.inputCtx.close();
         if (this.processor) this.processor.disconnect();
@@ -404,124 +583,307 @@ const LiveMode = {
         this.isRecording ? this.stopMic() : this.startMic();
     },
 
-    // ---------------------------------------------------------
-    // THE NEW FLUID PARTICLE VISUALIZER (Lumix Style)
-    // ---------------------------------------------------------
-    drawVisualizer() {
-        requestAnimationFrame(() => this.drawVisualizer());
-
-        const canvas = this.elements.visualizer;
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
-        const w = canvas.width, h = canvas.height;
-        const cx = w / 2, cy = h / 2;
-
-        // Initialize particles once
-        if (this.particles.length === 0) {
-            const numParticles = 200;
-            for (let i = 0; i < numParticles; i++) {
-                this.particles.push({
-                    angle: (i / numParticles) * Math.PI * 2,
-                    baseRadius: 80 + Math.random() * 5,
-                    size: 1 + Math.random() * 1.5,
-                    noiseOffset: Math.random() * 100
-                });
-            }
-        }
-
-        ctx.clearRect(0, 0, w, h);
-
-        // Get AI Output Volume
-        let aiVol = 0;
-        if (this.analyser && this.isAiSpeaking) {
-            this.analyser.getByteFrequencyData(this.dataArray);
-            aiVol = (this.dataArray.reduce((a, b) => a + b) / this.dataArray.length) / 255;
-        }
-
-        // Get User Mic Volume
-        let userVol = 0;
-        if (this.isRecording && this.inputAnalyser && !this.isAiSpeaking) {
-            this.inputAnalyser.getByteFrequencyData(this.inputDataArray);
-            userVol = (this.inputDataArray.reduce((a, b) => a + b) / this.inputDataArray.length) / 255;
-        }
-
-        // Determine Active State & Color
-        let activeVol = 0;
-        let particleColor = "rgba(142, 142, 147, 0.4)"; // Idle Gray
-        
-        if (userVol > 0.05) {
-            activeVol = userVol;
-            particleColor = "rgba(255, 69, 0, 0.9)"; // Brand Orange for User
-        } else if (aiVol > 0.05) {
-            activeVol = aiVol;
-            particleColor = "rgba(255, 255, 255, 0.9)"; // Bright White for AI
-        }
-
-        // Rotate entire ring slowly over time, speed up when active
-        this.angleOffset += 0.002 + (activeVol * 0.02);
-
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(this.angleOffset);
-
-        // Render Particles
-        for (let i = 0; i < this.particles.length; i++) {
-            const p = this.particles[i];
-            
-            // Audio expands the particles outwards
-            const expansion = activeVol * 45; 
-            
-            // Add sine-wave ripples for a fluid look
-            const wave = Math.sin(p.angle * 6 + this.angleOffset * 5) * (activeVol * 15);
-            const r = p.baseRadius + expansion + wave;
-            
-            const x = Math.cos(p.angle) * r;
-            const y = Math.sin(p.angle) * r;
-
-            ctx.beginPath();
-            ctx.arc(x, y, p.size + (activeVol * 2), 0, Math.PI * 2);
-            ctx.fillStyle = particleColor;
-            
-            // Add glow effect only when loud
-            if (activeVol > 0.1) {
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = particleColor;
-            } else {
-                ctx.shadowBlur = 0;
-            }
-            
-            ctx.fill();
-        }
-        ctx.restore();
-
-        // Update Text Context dynamically based on who is speaking
-        if (this.elements.statusText && this.isConnected) {
-            if (userVol > 0.05) {
-                this.elements.statusText.innerText = "Listening...";
-                this.elements.statusText.style.color = "#ff4500";
-            } else if (aiVol > 0.05) {
-                this.elements.statusText.innerText = "Speaking...";
-                this.elements.statusText.style.color = "#ffffff";
-            } else {
-                this.elements.statusText.innerText = "Waiting...";
-                this.elements.statusText.style.color = "#8e8e93";
-            }
-        }
-    },
-
+    // ========================
+    // CHAT LOG
+    // ========================
     addChat(text, sender) {
+        if (!this.elements.chatLog) return;
         const div = document.createElement("div");
         div.className = `live-msg ${sender}`;
         div.innerText = text;
         this.elements.chatLog.appendChild(div);
-        
-        // Keep only last 3 messages so it doesn't clutter the dark UI
-        if(this.elements.chatLog.children.length > 3) {
+        // Keep max 4 messages visible
+        while (this.elements.chatLog.children.length > 4) {
             this.elements.chatLog.removeChild(this.elements.chatLog.firstChild);
         }
-        this.elements.chatLog.scrollTop = this.elements.chatLog.scrollHeight;
+    },
+
+    // ========================
+    // KEYBOARD INPUT
+    // ========================
+    openKeyboard() {
+        this.closeMenu();
+        this.keyboardOpen = true;
+        this.elements.keyboardOverlay?.classList.add('open');
+        this.elements.menuBackdrop?.classList.add('show');
+        setTimeout(() => this.elements.keyboardInput?.focus(), 300);
+    },
+
+    closeKeyboard() {
+        this.keyboardOpen = false;
+        this.elements.keyboardOverlay?.classList.remove('open');
+        if (!this.menuOpen) {
+            this.elements.menuBackdrop?.classList.remove('show');
+        }
+    },
+
+    sendKeyboardMessage() {
+        const input = this.elements.keyboardInput;
+        if (!input || !input.value.trim()) return;
+
+        const text = input.value.trim();
+        input.value = '';
+        this.closeKeyboard();
+
+        this.addChat(`"${text}"`, "user");
+
+        // Send as text to Gemini via WebSocket
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                client_content: {
+                    turns: [{ role: "user", parts: [{ text: text }] }],
+                    turn_complete: true
+                }
+            }));
+        }
+    },
+
+    // ========================
+    // MENU SYSTEM
+    // ========================
+    toggleMenu() {
+        this.menuOpen ? this.closeMenu() : this.openMenu();
+    },
+
+    openMenu() {
+        this.closeKeyboard();
+        this.menuOpen = true;
+        this.elements.menuPanel?.classList.add('open');
+        this.elements.menuBackdrop?.classList.add('show');
+    },
+
+    closeMenu() {
+        this.menuOpen = false;
+        this.elements.menuPanel?.classList.remove('open');
+        if (!this.keyboardOpen) {
+            this.elements.menuBackdrop?.classList.remove('show');
+        }
+    },
+
+    // ========================
+    // GAZE TRACKING
+    // ========================
+    updateGazeTarget(clientX, clientY) {
+        this.lastInteractionTime = Date.now();
+        const canvas = this.elements.visualizer;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        this.targetX = (((clientX - rect.left) / rect.width) * 2 - 1) * 35;
+        this.targetY = (((clientY - rect.top) / rect.height) * 2 - 1) * 35;
+    },
+
+    // ========================
+    // EMOTION ENGINE
+    // ========================
+    triggerEmotion(emo) {
+        if (!this.emotions[emo]) return;
+        if (this.currentEmotion === emo) return;
+        this.currentEmotion = emo;
+    },
+
+    lerpColor(curr, target, ease) {
+        curr[0] += (target[0] - curr[0]) * ease;
+        curr[1] += (target[1] - curr[1]) * ease;
+        curr[2] += (target[2] - curr[2]) * ease;
+    },
+
+    // ========================
+    // FACE RENDERER (Full cklive-9 port)
+    // ========================
+    drawFace() {
+        requestAnimationFrame(() => this.drawFace());
+        this.time += 0.02;
+        const now = Date.now();
+
+        const canvas = this.elements.visualizer;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height, cx = w / 2, cy = h / 2;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // --- VOLUME ANALYSIS ---
+        let vol = 0;
+
+        // AI output audio volume
+        if (this.analyser && this.isAiSpeaking) {
+            this.analyser.getByteFrequencyData(this.dataArray);
+            vol = (this.dataArray.reduce((a, b) => a + b) / this.dataArray.length) / 255;
+        }
+
+        // User mic volume (when not AI speaking)
+        if (this.isRecording && this.inputAnalyser && !this.isAiSpeaking) {
+            this.inputAnalyser.getByteFrequencyData(this.inputDataArray);
+            const micVol = (this.inputDataArray.reduce((a, b) => a + b) / this.inputDataArray.length) / 255;
+            vol = micVol;
+        }
+
+        // --- CONTEXTUAL TRACKING ---
+        let isIdle = (now - this.lastInteractionTime) > 1500;
+        let headTilt = 0;
+
+        if (vol > 0.08 && !this.isAiSpeaking) {
+            // User speaking — snap attention to center
+            this.targetX = 0;
+            this.targetY = 0;
+            headTilt = 0;
+            this.lastInteractionTime = now;
+        } else if (this.currentEmotion === 'thinking') {
+            // Thinking — look up-right
+            this.targetX = 18;
+            this.targetY = -22;
+            headTilt = 0.1;
+        } else if (isIdle) {
+            // Idle wandering + micro-saccades
+            this.saccadeTimer--;
+            if (this.saccadeTimer <= 0) {
+                if (Math.random() < 0.03) {
+                    this.saccadeTargetX = (Math.random() * 50) - 25;
+                    this.saccadeTargetY = (Math.random() * 40) - 20;
+                    this.saccadeTimer = 40;
+                } else {
+                    this.saccadeTargetX = Math.sin(this.time * 1.2) * 20 + Math.cos(this.time * 0.7) * 15;
+                    this.saccadeTargetY = Math.sin(this.time * 0.9) * 15 + Math.cos(this.time * 1.5) * 10;
+                }
+            }
+            this.targetX = this.saccadeTargetX;
+            this.targetY = this.saccadeTargetY;
+            headTilt = Math.sin(this.time * 0.8) * 0.15;
+        }
+
+        // --- SMOOTH MORPH ENGINE ---
+        const target = this.emotions[this.currentEmotion];
+        const shapeEase = 0.08;
+        const colorEase = 0.04;
+
+        this.eyeParams.rot += (target.rot - this.eyeParams.rot) * shapeEase;
+        this.eyeParams.scaleY += (target.scaleY - this.eyeParams.scaleY) * shapeEase;
+        this.eyeParams.bend += (target.bend - this.eyeParams.bend) * shapeEase;
+        this.eyeParams.width += (target.width - this.eyeParams.width) * shapeEase;
+        this.eyeParams.height += (target.height - this.eyeParams.height) * shapeEase;
+        this.eyeParams.shiftX += (target.shiftX - this.eyeParams.shiftX) * shapeEase;
+        this.eyeParams.shiftY += (target.shiftY - this.eyeParams.shiftY) * shapeEase;
+
+        this.lerpColor(this.currentColors.core, target.colors.core, colorEase);
+        this.lerpColor(this.currentColors.mid, target.colors.mid, colorEase);
+        this.lerpColor(this.currentColors.edge, target.colors.edge, colorEase);
+        this.lerpColor(this.currentColors.shadow, target.colors.shadow, colorEase);
+
+        let audioScale = 1;
+        let talkBob = 0;
+
+        if (vol > 0.1) {
+            if (this.currentEmotion !== 'surprised' && this.currentEmotion !== 'thinking') {
+                audioScale = 1 - Math.min(0.4, vol * 1.2);
+            }
+            talkBob = Math.sin(this.time * 40) * (vol * 5);
+        }
+
+        // Blink
+        if (this.isBlinking) {
+            this.blinkScale -= 0.3;
+            if (this.blinkScale <= 0) { this.blinkScale = 0; this.isBlinking = false; }
+        } else {
+            this.blinkScale += 0.2;
+            if (this.blinkScale >= 1) this.blinkScale = 1;
+            if (Math.random() < 0.005 && this.currentEmotion !== 'thinking') this.isBlinking = true;
+        }
+
+        // Tracking speed
+        const trackingSpeed = isIdle ? 0.04 : 0.08;
+        this.currentEyeX += (this.targetX - this.currentEyeX) * trackingSpeed;
+        this.currentEyeY += (this.targetY - this.currentEyeY) * trackingSpeed;
+        this.currentTilt += (headTilt - this.currentTilt) * 0.05;
+
+        // --- HOLOGRAPHIC ORB ---
+        const baseRadius = 130 + (vol * 50) + Math.sin(this.time * 2) * 3;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(this.time * 0.5 + (vol * 2));
+
+        const gradient = ctx.createRadialGradient(0, 0, baseRadius * 0.2, 0, 0, baseRadius);
+        gradient.addColorStop(0, `rgba(${this.currentColors.core[0]}, ${this.currentColors.core[1]}, ${this.currentColors.core[2]}, 0.9)`);
+        gradient.addColorStop(0.4, `rgba(${this.currentColors.mid[0]}, ${this.currentColors.mid[1]}, ${this.currentColors.mid[2]}, 0.8)`);
+        gradient.addColorStop(0.7, `rgba(${this.currentColors.edge[0]}, ${this.currentColors.edge[1]}, ${this.currentColors.edge[2]}, 0.7)`);
+        gradient.addColorStop(1, `rgba(0, 0, 0, 0)`);
+
+        ctx.beginPath();
+        for (let i = 0; i <= Math.PI * 2; i += 0.1) {
+            const waveSpike = 15 + (vol * 45);
+            const waveSpeed = 2 + (vol * 10);
+            const wave = Math.sin(i * 3 + this.time * waveSpeed) * waveSpike + Math.cos(i * 5 - this.time) * (waveSpike * 0.6);
+            ctx.lineTo(Math.cos(i) * (baseRadius + wave), Math.sin(i) * (baseRadius + wave));
+        }
+        ctx.closePath();
+
+        ctx.fillStyle = gradient;
+        ctx.shadowColor = `rgba(${this.currentColors.shadow[0]}, ${this.currentColors.shadow[1]}, ${this.currentColors.shadow[2]}, 0.5)`;
+        ctx.shadowBlur = 40 + (vol * 50);
+        ctx.fill();
+        ctx.restore();
+
+        // --- EXPRESSIVE EYES ---
+        ctx.save();
+        const breathingBob = Math.sin(this.time * 3) * 4;
+        ctx.translate(cx + this.currentEyeX, cy + this.currentEyeY + breathingBob + talkBob);
+        ctx.rotate(this.currentTilt);
+
+        const eyeSpacing = 24;
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 15;
+
+        const drawEye = (isLeft) => {
+            ctx.save();
+            const dir = isLeft ? -1 : 1;
+
+            ctx.translate(dir * eyeSpacing + (dir * this.eyeParams.shiftX), this.eyeParams.shiftY);
+            ctx.rotate(dir * this.eyeParams.rot);
+            ctx.scale(1, Math.max(0.01, this.eyeParams.scaleY * audioScale * this.blinkScale));
+
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            const ew = this.eyeParams.width;
+            const eh = this.eyeParams.height;
+            const b = this.eyeParams.bend;
+            const rad = Math.min(ew / 2, eh / 2, 6);
+
+            ctx.beginPath();
+            ctx.moveTo(-ew / 2 + rad, -eh / 2);
+
+            if (b !== 0) { ctx.quadraticCurveTo(0, -eh / 2 + b, ew / 2 - rad, -eh / 2); }
+            else { ctx.lineTo(ew / 2 - rad, -eh / 2); }
+
+            ctx.arcTo(ew / 2, -eh / 2, ew / 2, -eh / 2 + rad, rad);
+            ctx.lineTo(ew / 2, eh / 2 - rad);
+            ctx.arcTo(ew / 2, eh / 2, ew / 2 - rad, eh / 2, rad);
+
+            if (b !== 0) { ctx.quadraticCurveTo(0, eh / 2 + b, -ew / 2 + rad, eh / 2); }
+            else { ctx.lineTo(-ew / 2 + rad, eh / 2); }
+
+            ctx.arcTo(-ew / 2, eh / 2, -ew / 2, eh / 2 - rad, rad);
+            ctx.lineTo(-ew / 2, -eh / 2 + rad);
+            ctx.arcTo(-ew / 2, -eh / 2, -ew / 2 + rad, -eh / 2, rad);
+            ctx.closePath();
+
+            if (Math.abs(b) > 5 && eh < 10) { ctx.stroke(); }
+            else { ctx.fill(); }
+
+            ctx.restore();
+        };
+
+        drawEye(true);
+        drawEye(false);
+
+        ctx.restore();
     }
 };
 
+// Initialize when the module loads
 LiveMode.init();
+
+// Export for potential external use
 export default LiveMode;

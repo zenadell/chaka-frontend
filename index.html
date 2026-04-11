@@ -358,45 +358,103 @@
     </div>
   </div>
 
-  <!-- Live Mode Overlay (Sleek Professional HUD) -->
-<div id="live-mode-overlay" class="chaka-dark-overlay">
-  
-  <header class="chaka-top-nav">
-    <button class="nav-icon" aria-label="Menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-    </button>
-    <div class="nav-title">Chaka.AI <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
-    <div class="nav-profile-pic"></div>
-  </header>
+  <!-- Live Mode Overlay (V5 Expressive Face HUD) -->
+  <div id="live-mode-overlay">
 
-  <main class="chaka-stage">
-    <div class="visualizer-container">
-      <canvas id="live-visualizer" width="400" height="400"></canvas>
+    <!-- Persona Badge (top center) -->
+    <div id="live-persona-name" class="live-persona-badge">CHAKA // LIVE</div>
+
+    <!-- Main Stage -->
+    <main class="live-stage">
+      <div class="live-visualizer-container">
+        <canvas id="live-visualizer" width="500" height="500"></canvas>
+      </div>
+      <div class="live-feedback-area">
+        <div id="live-status-text" class="live-status-text-label">SYSTEM READY</div>
+        <div id="live-chat-log" class="live-transcript-box"></div>
+      </div>
+    </main>
+
+    <!-- Bottom Controls (3-button layout) -->
+    <footer class="live-controls-bar">
+      <button id="live-menu-btn" class="live-action-btn secondary" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+          <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"></path>
+        </svg>
+      </button>
+      <button id="live-mic-btn" class="live-action-btn primary-mic" title="Toggle Microphone">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+        </svg>
+      </button>
+      <button id="live-exit-btn" class="live-action-btn secondary" title="End Session">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </footer>
+
+    <!-- Menu Backdrop -->
+    <div id="live-menu-backdrop" class="live-menu-backdrop"></div>
+
+    <!-- Slide-Up Menu Panel -->
+    <div id="live-menu-panel" class="live-menu-panel">
+      <div class="menu-handle"></div>
+      <div class="menu-title">Session</div>
+
+      <button id="live-keyboard-toggle" class="live-menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+          <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"></path>
+        </svg>
+        <span class="menu-item-label">Type a Message</span>
+      </button>
+
+      <div class="live-menu-divider"></div>
+
+      <div class="live-menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+        <span class="menu-item-label">Voice</span>
+        <select id="live-voice-select">
+          <option value="Puck">Puck</option>
+          <option value="Kore">Kore</option>
+          <option value="Aoede">Aoede</option>
+          <option value="Fenrir">Fenrir</option>
+          <option value="Charon">Charon</option>
+        </select>
+      </div>
+
+      <div class="live-menu-divider"></div>
+
+      <button id="live-back-to-chat" class="live-menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span class="menu-item-label">Back to Chat</span>
+      </button>
     </div>
 
-    <div class="text-feedback-area">
-      <div id="live-status-text" class="status-text">I'm Listening...</div>
-      <div id="live-chat-log" class="transcript-box"></div>
+    <!-- Keyboard Input Overlay -->
+    <div id="live-keyboard-overlay" class="live-keyboard-overlay">
+      <div class="live-keyboard-input-row">
+        <input id="live-keyboard-input" class="live-keyboard-input" type="text" placeholder="Type a message..." autocomplete="off" />
+        <button id="live-keyboard-send" class="live-keyboard-send-btn" title="Send">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+          </svg>
+        </button>
+      </div>
     </div>
-  </main>
 
-  <footer class="chaka-controls">
-    <button id="live-keyboard-btn" class="action-btn secondary" aria-label="Keyboard">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"></path></svg>
-    </button>
-
-    <button id="live-mic-btn" class="action-btn primary-mic active" aria-label="Microphone">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-      </svg>
-    </button>
-
-    <button id="live-exit-btn" class="action-btn secondary" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-    </button>
-  </footer>
-</div>
+  </div>
 
   <!-- Turso Client (Socket.io + Database API) -->
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>

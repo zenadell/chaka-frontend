@@ -1,251 +1,463 @@
-/* ======================================================================
-  CHAKA V5 // DARK STUDIO UI (Repaired & Fully Structured)
-====================================================================== */
+/* =========================================================
+   CHAKA LIVE MODE // V5 EXPRESSIVE FACE HUD (Dark Immersive)
+   ========================================================= */
 :root {
-  --app-bg: rgba(10, 10, 12, 0.85); /* Restored transparency for overlay feel */
-  --app-surface: rgba(28, 28, 30, 0.6);
-  --app-border: rgba(255, 255, 255, 0.08);
-  --text-primary: #ffffff;
-  --text-secondary: #8e8e93;
-  --brand-orange: #ff4500;
-  --brand-orange-glow: rgba(255, 69, 0, 0.4);
-  
-  --overlay-blur: blur(40px) saturate(150%);
-  --shadow-heavy: 0 20px 40px rgba(0, 0, 0, 0.6);
+    --live-bg: #0a0a0c;
+    --live-surface: rgba(28, 28, 30, 0.6);
+    --live-border: rgba(255, 255, 255, 0.08);
+    --live-text: #ffffff;
+    --live-text-dim: #8e8e93;
+    --live-brand: #ff4500;
+    --live-brand-glow: rgba(255, 69, 0, 0.4);
+    --live-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
 }
 
-/* --- Core Overlay (Feels like a layer, not a new website) --- */
-.chaka-dark-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--app-bg);
-  backdrop-filter: var(--overlay-blur);
-  -webkit-backdrop-filter: var(--overlay-blur);
-  display: flex;
-  flex-direction: column;
-  z-index: 10000;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-  color: var(--text-primary);
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+/* --- OVERLAY SHELL --- */
+#live-mode-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: var(--live-bg);
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+    color: var(--live-text);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
 }
 
-.chaka-dark-overlay.active {
-  opacity: 1;
-  pointer-events: all;
+#live-mode-overlay.active {
+    opacity: 1;
+    pointer-events: all;
 }
 
-/* Subtle ambient pulse behind the whole UI */
-.chaka-dark-overlay::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: radial-gradient(circle at 50% 40%, rgba(255, 69, 0, 0.03) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 1;
+/* Subtle ambient glow */
+#live-mode-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 40%, rgba(255, 69, 0, 0.02) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 1;
 }
 
-/* --- Top Navigation --- */
-.chaka-top-nav {
-  height: 70px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  position: relative;
-  z-index: 10;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+/* --- MAIN STAGE --- */
+.live-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 5;
+    width: 100%;
 }
 
-.nav-icon {
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: background 0.2s ease;
+/* --- VISUALIZER (Face Canvas) --- */
+.live-visualizer-container {
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 2vh;
 }
 
-.nav-icon svg { width: 24px; height: 24px; }
-.nav-icon:hover { background: rgba(255, 255, 255, 0.1); }
-
-.nav-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 1px;
-}
-
-.chevron { width: 16px; height: 16px; color: var(--text-secondary); }
-
-.nav-profile-pic {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #333; 
-  border: 1px solid var(--app-border);
-  background-size: cover;
-  background-position: center;
-}
-
-/* --- Center Stage (The Animated Visualizer) --- */
-.chaka-stage {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 5;
-  width: 100%;
-}
-
-/* FIXED: Forcing the canvas wrapper to have physical space */
-.visualizer-container {
-  width: 100%;
-  max-width: 400px;
-  aspect-ratio: 1 / 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  margin-bottom: 20px;
-}
-
-/* FIXED: Forcing the canvas to render the JS particles */
 #live-visualizer {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
-  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.1));
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    cursor: pointer;
+    filter: drop-shadow(0 0 30px rgba(0, 212, 255, 0.15));
 }
 
-/* --- Text & Transcripts --- */
-.text-feedback-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  max-width: 600px;
-  height: 160px; /* Fixed height so UI doesn't jump */
-  padding: 0 20px;
-  z-index: 10;
+/* --- TEXT FEEDBACK AREA --- */
+.live-feedback-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 600px;
+    height: 160px;
+    padding: 0 20px;
+    z-index: 10;
 }
 
-.status-text {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: var(--text-secondary);
-  margin-bottom: 20px;
-  text-transform: uppercase;
-  animation: pulseText 2s infinite ease-in-out;
+/* Status Label (LISTENING, SPEAKING, THINKING) */
+#live-status-text {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--live-text-dim);
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    animation: live-pulseText 2s infinite ease-in-out;
+    transition: color 0.3s ease;
 }
 
-@keyframes pulseText {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+@keyframes live-pulseText {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
 }
 
-.transcript-box {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow: hidden;
-  mask-image: linear-gradient(to top, black 60%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, black 60%, transparent 100%);
+/* --- TRANSCRIPT LOG --- */
+#live-chat-log {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+    mask-image: linear-gradient(to top, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, black 60%, transparent 100%);
 }
 
 .live-msg {
-  text-align: center;
-  font-size: 18px;
-  line-height: 1.5;
-  padding: 8px 16px;
-  opacity: 0;
-  transform: translateY(10px);
-  animation: msgFadeIn 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1.4;
+    padding: 4px 16px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: live-msgFadeIn 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
-.live-msg.ai { color: var(--text-primary); font-weight: 400; }
-.live-msg.user { color: var(--text-secondary); font-weight: 500; }
-
-@keyframes msgFadeIn {
-  to { opacity: 1; transform: translateY(0); }
+.live-msg.ai {
+    color: var(--live-text);
+    font-weight: 400;
 }
 
-/* --- Bottom Controls Deck --- */
-.chaka-controls {
-  height: 140px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 32px;
-  padding-bottom: 40px;
-  z-index: 20;
+.live-msg.user {
+    color: var(--live-text-dim);
+    font-weight: 500;
+    font-style: italic;
 }
 
-.action-btn {
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: 1px solid var(--app-border);
-  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: var(--shadow-heavy);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+.live-msg.system {
+    color: var(--live-brand);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 1px;
 }
 
-.action-btn.secondary {
-  width: 56px;
-  height: 56px;
-  background: var(--app-surface);
-  color: var(--text-primary);
+@keyframes live-msgFadeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.action-btn.secondary svg { width: 22px; height: 22px; }
-
-.action-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.05);
+/* --- BOTTOM CONTROLS --- */
+.live-controls-bar {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding-bottom: 40px;
+    z-index: 20;
 }
 
-/* The Main Microphone Button */
-.action-btn.primary-mic {
-  width: 80px;
-  height: 80px;
-  background: var(--app-surface);
-  color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+/* Common Button Base */
+.live-action-btn {
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid var(--live-border);
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    box-shadow: var(--live-shadow);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background: var(--live-surface);
+    color: var(--live-text);
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.action-btn.primary-mic svg { width: 34px; height: 34px; }
-
-/* The Active/Listening State (Triggered by JS) */
-.action-btn.primary-mic.active {
-  background: var(--brand-orange);
-  color: #fff;
-  border-color: var(--brand-orange);
-  box-shadow: 0 0 25px var(--brand-orange-glow), 0 0 0 0 rgba(255, 69, 0, 0.5);
-  animation: micRipple 2s infinite cubic-bezier(0.25, 1, 0.5, 1);
+/* Secondary Buttons (Menu + Exit) */
+.live-action-btn.secondary {
+    width: 56px;
+    height: 56px;
 }
 
-@keyframes micRipple {
-  0% { box-shadow: 0 0 20px var(--brand-orange-glow), 0 0 0 0 rgba(255, 69, 0, 0.4); }
-  70% { box-shadow: 0 0 25px var(--brand-orange-glow), 0 0 0 20px rgba(255, 69, 0, 0); }
-  100% { box-shadow: 0 0 20px var(--brand-orange-glow), 0 0 0 0 rgba(255, 69, 0, 0); }
+.live-action-btn.secondary svg {
+    width: 22px;
+    height: 22px;
+}
+
+.live-action-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+/* Primary Mic Button */
+.live-action-btn.primary-mic {
+    width: 80px;
+    height: 80px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.live-action-btn.primary-mic svg {
+    width: 34px;
+    height: 34px;
+}
+
+.live-action-btn.primary-mic.active {
+    background: var(--live-brand);
+    color: #fff;
+    border-color: var(--live-brand);
+    box-shadow: 0 0 25px var(--live-brand-glow), 0 0 0 0 rgba(255, 69, 0, 0.5);
+    animation: live-micRipple 2s infinite cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes live-micRipple {
+    0% { box-shadow: 0 0 20px var(--live-brand-glow), 0 0 0 0 rgba(255, 69, 0, 0.4); }
+    70% { box-shadow: 0 0 30px var(--live-brand-glow), 0 0 0 20px rgba(255, 69, 0, 0); }
+    100% { box-shadow: 0 0 20px var(--live-brand-glow), 0 0 0 0 rgba(255, 69, 0, 0); }
+}
+
+/* --- SLIDE-UP MENU PANEL --- */
+.live-menu-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(20, 20, 22, 0.95);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-top: 1px solid var(--live-border);
+    border-radius: 24px 24px 0 0;
+    padding: 24px 24px 40px;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    pointer-events: none;
+}
+
+.live-menu-panel.open {
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+.live-menu-panel .menu-handle {
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    margin: 0 auto 24px;
+}
+
+.live-menu-panel .menu-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--live-text-dim);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+}
+
+.live-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 14px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--live-text);
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    transition: background 0.2s ease;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.live-menu-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.live-menu-item svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.live-menu-item .menu-item-label {
+    flex: 1;
+}
+
+.live-menu-item .menu-item-value {
+    font-size: 13px;
+    color: var(--live-text-dim);
+}
+
+.live-menu-divider {
+    height: 1px;
+    background: var(--live-border);
+    margin: 8px 0;
+}
+
+/* Voice select inside menu */
+.live-menu-item select {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--live-border);
+    border-radius: 8px;
+    color: var(--live-text);
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+}
+
+/* --- KEYBOARD INPUT OVERLAY --- */
+.live-keyboard-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    background: rgba(20, 20, 22, 0.95);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-top: 1px solid var(--live-border);
+    border-radius: 24px 24px 0 0;
+    padding: 20px 20px 40px;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    pointer-events: none;
+}
+
+.live-keyboard-overlay.open {
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+.live-keyboard-input-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.live-keyboard-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--live-border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    color: var(--live-text);
+    font-family: inherit;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.live-keyboard-input:focus {
+    border-color: var(--live-brand);
+}
+
+.live-keyboard-input::placeholder {
+    color: var(--live-text-dim);
+}
+
+.live-keyboard-send-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    background: var(--live-brand);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.live-keyboard-send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--live-brand-glow);
+}
+
+.live-keyboard-send-btn svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* --- MENU BACKDROP --- */
+.live-menu-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 80;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.live-menu-backdrop.show {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* --- PERSONA BADGE --- */
+.live-persona-badge {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--live-text-dim);
+    text-transform: uppercase;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 480px) {
+    .live-visualizer-container {
+        max-width: 320px;
+    }
+    
+    .live-feedback-area {
+        height: 130px;
+        padding: 0 16px;
+    }
+    
+    .live-msg {
+        font-size: 16px;
+    }
+    
+    .live-controls-bar {
+        gap: 24px;
+        padding-bottom: 30px;
+    }
+    
+    .live-action-btn.primary-mic {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .live-action-btn.secondary {
+        width: 48px;
+        height: 48px;
+    }
 }
