@@ -1,27 +1,34 @@
 /* ======================================================================
-  CHAKA V5 // DARK STUDIO UI (Video 3 Inspiration)
+  CHAKA V5 // DARK STUDIO UI (Repaired & Fully Structured)
 ====================================================================== */
 :root {
-  --app-bg: #111111;
-  --app-surface: #1c1c1e;
+  --app-bg: rgba(10, 10, 12, 0.85); /* Restored transparency for overlay feel */
+  --app-surface: rgba(28, 28, 30, 0.6);
+  --app-border: rgba(255, 255, 255, 0.08);
   --text-primary: #ffffff;
   --text-secondary: #8e8e93;
-  --brand-orange: #ff4500; /* The signature mic color */
-  --brand-orange-glow: rgba(255, 69, 0, 0.3);
+  --brand-orange: #ff4500;
+  --brand-orange-glow: rgba(255, 69, 0, 0.4);
+  
+  --overlay-blur: blur(40px) saturate(150%);
+  --shadow-heavy: 0 20px 40px rgba(0, 0, 0, 0.6);
 }
 
+/* --- Core Overlay (Feels like a layer, not a new website) --- */
 .chaka-dark-overlay {
   position: fixed;
   inset: 0;
-  background-color: var(--app-bg);
+  background: var(--app-bg);
+  backdrop-filter: var(--overlay-blur);
+  -webkit-backdrop-filter: var(--overlay-blur);
   display: flex;
   flex-direction: column;
   z-index: 10000;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   color: var(--text-primary);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s ease;
+  transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .chaka-dark-overlay.active {
@@ -29,46 +36,67 @@
   pointer-events: all;
 }
 
+/* Subtle ambient pulse behind the whole UI */
+.chaka-dark-overlay::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 69, 0, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* --- Top Navigation --- */
 .chaka-top-nav {
-  height: 60px;
+  height: 70px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  margin-top: 10px;
+  position: relative;
+  z-index: 10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .nav-icon {
-  background: none;
+  background: transparent;
   border: none;
   color: var(--text-primary);
-  width: 24px;
-  height: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s ease;
 }
+
+.nav-icon svg { width: 24px; height: 24px; }
+.nav-icon:hover { background: rgba(255, 255, 255, 0.1); }
 
 .nav-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 16px;
+  gap: 8px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 .chevron { width: 16px; height: 16px; color: var(--text-secondary); }
 
 .nav-profile-pic {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #333; /* Replace with your avatar image URL */
-  background-image: url('YOUR_AVATAR_URL_HERE');
+  background: #333; 
+  border: 1px solid var(--app-border);
   background-size: cover;
+  background-position: center;
 }
 
-/* --- Center Stage (Visualizer) --- */
+/* --- Center Stage (The Animated Visualizer) --- */
 .chaka-stage {
   flex: 1;
   display: flex;
@@ -76,20 +104,31 @@
   align-items: center;
   justify-content: center;
   position: relative;
+  z-index: 5;
+  width: 100%;
 }
 
+/* FIXED: Forcing the canvas wrapper to have physical space */
 .visualizer-container {
-  width: 300px;
-  height: 300px;
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 40px;
+  position: relative;
+  margin-bottom: 20px;
 }
 
+/* FIXED: Forcing the canvas to render the JS particles */
 #live-visualizer {
   width: 100%;
   height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.1));
 }
 
 /* --- Text & Transcripts --- */
@@ -97,42 +136,65 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   width: 100%;
-  max-width: 400px;
-  min-height: 120px;
+  max-width: 600px;
+  height: 160px; /* Fixed height so UI doesn't jump */
+  padding: 0 20px;
+  z-index: 10;
 }
 
 .status-text {
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 2px;
   color: var(--text-secondary);
-  margin-bottom: 16px;
-  animation: pulseText 2s infinite;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  animation: pulseText 2s infinite ease-in-out;
 }
 
 @keyframes pulseText {
-  0%, 100% { opacity: 0.6; }
+  0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
 
 .transcript-box {
   width: 100%;
-  text-align: center;
-  font-size: 20px;
-  line-height: 1.4;
-  font-weight: 400;
-  color: var(--text-primary);
-  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  mask-image: linear-gradient(to top, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, black 60%, transparent 100%);
 }
 
-/* --- Bottom Controls --- */
+.live-msg {
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.5;
+  padding: 8px 16px;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: msgFadeIn 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.live-msg.ai { color: var(--text-primary); font-weight: 400; }
+.live-msg.user { color: var(--text-secondary); font-weight: 500; }
+
+@keyframes msgFadeIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Bottom Controls Deck --- */
 .chaka-controls {
-  height: 120px;
+  height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 40px;
-  padding-bottom: 20px;
+  gap: 32px;
+  padding-bottom: 40px;
+  z-index: 20;
 }
 
 .action-btn {
@@ -141,34 +203,49 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
+  border: 1px solid var(--app-border);
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: var(--shadow-heavy);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .action-btn.secondary {
-  width: 50px;
-  height: 50px;
+  width: 56px;
+  height: 56px;
   background: var(--app-surface);
-  color: var(--text-secondary);
-}
-
-.action-btn.secondary:hover {
-  background: #2c2c2e;
   color: var(--text-primary);
 }
 
-.action-btn.primary-mic {
-  width: 72px;
-  height: 72px;
-  background: var(--app-surface);
-  color: var(--text-secondary);
+.action-btn.secondary svg { width: 22px; height: 22px; }
+
+.action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
 }
 
-.action-btn.primary-mic svg { width: 32px; height: 32px; }
+/* The Main Microphone Button */
+.action-btn.primary-mic {
+  width: 80px;
+  height: 80px;
+  background: var(--app-surface);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
 
-/* The Active/Listening State */
+.action-btn.primary-mic svg { width: 34px; height: 34px; }
+
+/* The Active/Listening State (Triggered by JS) */
 .action-btn.primary-mic.active {
   background: var(--brand-orange);
   color: #fff;
-  box-shadow: 0 0 20px var(--brand-orange-glow);
+  border-color: var(--brand-orange);
+  box-shadow: 0 0 25px var(--brand-orange-glow), 0 0 0 0 rgba(255, 69, 0, 0.5);
+  animation: micRipple 2s infinite cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes micRipple {
+  0% { box-shadow: 0 0 20px var(--brand-orange-glow), 0 0 0 0 rgba(255, 69, 0, 0.4); }
+  70% { box-shadow: 0 0 25px var(--brand-orange-glow), 0 0 0 20px rgba(255, 69, 0, 0); }
+  100% { box-shadow: 0 0 20px var(--brand-orange-glow), 0 0 0 0 rgba(255, 69, 0, 0); }
 }
