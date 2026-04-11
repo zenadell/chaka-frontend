@@ -286,6 +286,7 @@ const LiveMode = {
 
         this.socket.onmessage = async (event) => {
             let messageText = event.data instanceof Blob ? await event.data.text() : event.data;
+            if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText);
             let data = JSON.parse(messageText);
 
             // Tool calls (emotion, search, scrape)
@@ -299,6 +300,14 @@ const LiveMode = {
             if (data.serverContent?.interrupted) {
                 console.log("🛑 AI Interrupted");
                 this.stopCurrentAudio();
+                return;
+            }
+
+            // Handle turnComplete — flush any remaining audio in queue
+            if (data.serverContent?.turnComplete) {
+                if (!this.isPlaying && this.audioQueue.length > 0) {
+                    this.playNextInQueue();
+                }
                 return;
             }
 
@@ -335,7 +344,12 @@ const LiveMode = {
 
         let resultText = "Done.";
         const apiBase = window.BACKEND_URL || "";
-        const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
+        let headers;
+        try {
+            headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : { 'Content-Type': 'application/json' };
+        } catch (e) {
+            headers = { 'Content-Type': 'application/json' };
+        }
 
         try {
             if (call.name === "express_emotion") {
@@ -557,7 +571,13 @@ const LiveMode = {
                     let s = Math.max(-1, Math.min(1, inputData[i]));
                     pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                 }
-                const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)));
+                // Convert to base64 safely (chunked to avoid stack overflow)
+                const uint8 = new Uint8Array(pcmData.buffer);
+                let binaryStr = '';
+                for (let i = 0; i < uint8.length; i++) {
+                    binaryStr += String.fromCharCode(uint8[i]);
+                }
+                const base64Audio = btoa(binaryStr);
                 this.socket.send(JSON.stringify({
                     realtime_input: { media_chunks: [{ mime_type: "audio/pcm", data: base64Audio }] }
                 }));
