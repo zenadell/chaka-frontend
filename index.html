@@ -359,41 +359,55 @@
   </div>
 
   <!-- Live Mode Overlay (Sleek Professional HUD) -->
-  <div id="live-mode-overlay">
-    <div class="live-header">
-      <div class="live-status-pill">
-        <span id="live-conn-status" class="dot"></span>
-        <span id="live-status-text">OFFLINE</span>
-      </div>
-      <div id="live-persona-name" class="live-title">CHAKA // LIVE</div>
-      <button id="live-exit-btn" class="live-close-btn" title="End Session">&times;</button>
+ <div id="live-mode-overlay" class="chaka-overlay">
+  
+  <header class="chaka-header">
+    <div class="status-group">
+      <span id="live-conn-status" class="status-indicator"></span>
+      <span id="live-status-text" class="status-label">OFFLINE</span>
     </div>
 
-    <div class="live-central">
-      <div class="orb-container">
-        <canvas id="live-visualizer" width="400" height="400"></canvas>
-        <div class="orb-pulsar"></div>
-      </div>
+    <div id="live-persona-name" class="chaka-brand">CHAKA // LIVE</div>
+
+    <button id="live-exit-btn" class="chaka-icon-btn exit" aria-label="End Session">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </header>
+
+  <main class="chaka-core">
+    <div class="orb-wrapper">
+      <canvas id="live-visualizer" width="400" height="400"></canvas>
+      <div class="orb-pulsar"></div>
     </div>
 
-    <div id="live-chat-log" class="live-chat-log"></div>
+    <div id="live-chat-log" class="chaka-chat-log"></div>
+  </main>
 
-    <div class="live-footer">
-      <div class="live-controls">
-        <button id="live-mic-btn" class="live-btn mic" title="Toggle Microphone">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-          </svg>
-        </button>
-        <button id="live-connect-btn" class="live-btn connect">Wake</button>
-        <div id="live-vol-meter" class="live-vol-meter">
-          <div id="live-vol-bar" class="live-vol-bar"></div>
+  <footer class="chaka-footer">
+    <div class="action-bar">
+      
+      <button id="live-mic-btn" class="chaka-icon-btn mic" aria-label="Toggle Microphone">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+        </svg>
+      </button>
+
+      <button id="live-connect-btn" class="chaka-primary-btn">Wake</button>
+
+      <div class="audio-feedback">
+        <div id="live-vol-meter" class="chaka-vol-meter">
+          <div id="live-vol-bar" class="chaka-vol-bar"></div>
         </div>
-        <div id="live-mic-status" class="live-mic-status">MIC: OFF</div>
+        <div id="live-mic-status" class="chaka-mic-status">MIC: OFF</div>
       </div>
+      
     </div>
-  </div>
+  </footer>
+</div>
 
   <!-- Turso Client (Socket.io + Database API) -->
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
