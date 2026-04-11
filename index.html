@@ -359,53 +359,42 @@
   </div>
 
   <!-- Live Mode Overlay (Sleek Professional HUD) -->
- <div id="live-mode-overlay" class="chaka-overlay">
+<div id="live-mode-overlay" class="chaka-dark-overlay">
   
-  <header class="chaka-header">
-    <div class="status-group">
-      <span id="live-conn-status" class="status-indicator"></span>
-      <span id="live-status-text" class="status-label">OFFLINE</span>
-    </div>
-
-    <div id="live-persona-name" class="chaka-brand">CHAKA // LIVE</div>
-
-    <button id="live-exit-btn" class="chaka-icon-btn exit" aria-label="End Session">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
+  <header class="chaka-top-nav">
+    <button class="nav-icon" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
     </button>
+    <div class="nav-title">Chaka.AI <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+    <div class="nav-profile-pic"></div>
   </header>
 
-  <main class="chaka-core">
-    <div class="orb-wrapper">
+  <main class="chaka-stage">
+    <div class="visualizer-container">
       <canvas id="live-visualizer" width="400" height="400"></canvas>
-      <div class="orb-pulsar"></div>
     </div>
 
-    <div id="live-chat-log" class="chaka-chat-log"></div>
+    <div class="text-feedback-area">
+      <div id="live-status-text" class="status-text">I'm Listening...</div>
+      <div id="live-chat-log" class="transcript-box"></div>
+    </div>
   </main>
 
-  <footer class="chaka-footer">
-    <div class="action-bar">
-      
-      <button id="live-mic-btn" class="chaka-icon-btn mic" aria-label="Toggle Microphone">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-        </svg>
-      </button>
+  <footer class="chaka-controls">
+    <button id="live-keyboard-btn" class="action-btn secondary" aria-label="Keyboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"></path></svg>
+    </button>
 
-      <button id="live-connect-btn" class="chaka-primary-btn">Wake</button>
+    <button id="live-mic-btn" class="action-btn primary-mic active" aria-label="Microphone">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+      </svg>
+    </button>
 
-      <div class="audio-feedback">
-        <div id="live-vol-meter" class="chaka-vol-meter">
-          <div id="live-vol-bar" class="chaka-vol-bar"></div>
-        </div>
-        <div id="live-mic-status" class="chaka-mic-status">MIC: OFF</div>
-      </div>
-      
-    </div>
+    <button id="live-exit-btn" class="action-btn secondary" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
   </footer>
 </div>
 
