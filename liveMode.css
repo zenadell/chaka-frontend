@@ -1,350 +1,174 @@
 /* ======================================================================
-  CHAKA V5 // LIVE MODE UI 
-  Aesthetic: Premium, Minimalist, Glassmorphism, Ethereal
-======================================================================
-*/
-
+  CHAKA V5 // DARK STUDIO UI (Video 3 Inspiration)
+====================================================================== */
 :root {
-  /* High-end Color Palette */
-  --chaka-bg: #030303;
-  --chaka-surface: rgba(20, 20, 22, 0.65);
-  --chaka-border: rgba(255, 255, 255, 0.06);
-  --chaka-text-main: #f5f5f7;
-  --chaka-text-muted: #86868b;
-  
-  /* Accent Colors */
-  --chaka-accent: #00d4ff;       /* Wake / Active state */
-  --chaka-record: #ff3b30;       /* Live recording state */
-  
-  /* Effects */
-  --chaka-blur: blur(24px) saturate(150%);
-  --chaka-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  --bezier-smooth: cubic-bezier(0.25, 1, 0.5, 1);
+  --app-bg: #111111;
+  --app-surface: #1c1c1e;
+  --text-primary: #ffffff;
+  --text-secondary: #8e8e93;
+  --brand-orange: #ff4500; /* The signature mic color */
+  --brand-orange-glow: rgba(255, 69, 0, 0.3);
 }
 
-/* =========================================
-   OVERLAY & AMBIENCE
-========================================= */
-.chaka-overlay {
+.chaka-dark-overlay {
   position: fixed;
   inset: 0;
-  background-color: var(--chaka-bg);
+  background-color: var(--app-bg);
   display: flex;
   flex-direction: column;
   z-index: 10000;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
-  color: var(--chaka-text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  color: var(--text-primary);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.8s var(--bezier-smooth);
+  transition: opacity 0.4s ease;
 }
 
-.chaka-overlay.active {
+.chaka-dark-overlay.active {
   opacity: 1;
   pointer-events: all;
 }
 
-/* Elegant ambient light bleed behind the interface */
-.chaka-overlay::before {
-  content: '';
-  position: absolute;
-  top: -20%;
-  left: -10%;
-  width: 140%;
-  height: 140%;
-  background: radial-gradient(circle at 50% 40%, rgba(0, 212, 255, 0.03) 0%, transparent 60%);
-  pointer-events: none;
-  animation: ambientBreathe 10s infinite alternate ease-in-out;
-}
-
-@keyframes ambientBreathe {
-  0% { transform: scale(1); opacity: 0.5; }
-  100% { transform: scale(1.05); opacity: 1; }
-}
-
-/* =========================================
-   HEADER HUD
-========================================= */
-.chaka-header {
-  height: 90px;
+/* --- Top Navigation --- */
+.chaka-top-nav {
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 48px;
-  position: relative;
-  z-index: 10;
+  padding: 0 24px;
+  margin-top: 10px;
 }
 
-.status-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--chaka-surface);
-  backdrop-filter: var(--chaka-blur);
-  -webkit-backdrop-filter: var(--chaka-blur);
-  padding: 8px 16px;
-  border-radius: 30px;
-  border: 1px solid var(--chaka-border);
-}
-
-.status-indicator {
-  width: 6px;
-  height: 6px;
-  background: var(--chaka-text-muted);
-  border-radius: 50%;
-  transition: all 0.4s ease;
-}
-
-.status-indicator.active {
-  background: var(--chaka-accent);
-  box-shadow: 0 0 10px var(--chaka-accent);
-}
-
-.status-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  color: var(--chaka-text-muted);
-  text-transform: uppercase;
-}
-
-.chaka-brand {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 6px;
-  color: var(--chaka-text-main);
-  opacity: 0.8;
-  text-transform: uppercase;
-}
-
-/* =========================================
-   BUTTONS (ICONS & PRIMARY)
-========================================= */
-.chaka-icon-btn {
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 50%;
-  color: var(--chaka-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.nav-icon {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  width: 24px;
+  height: 24px;
   cursor: pointer;
-  transition: all 0.3s var(--bezier-smooth);
 }
 
-.chaka-icon-btn svg {
-  width: 20px;
-  height: 20px;
+.nav-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
-.chaka-icon-btn:hover {
-  background: var(--chaka-surface);
-  border-color: var(--chaka-border);
-  color: var(--chaka-text-main);
-  transform: scale(1.05);
+.chevron { width: 16px; height: 16px; color: var(--text-secondary); }
+
+.nav-profile-pic {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #333; /* Replace with your avatar image URL */
+  background-image: url('YOUR_AVATAR_URL_HERE');
+  background-size: cover;
 }
 
-.chaka-icon-btn.exit:hover {
-  color: var(--chaka-record); /* Subtle red hint on close */
-}
-
-/* =========================================
-   MAIN CORE (VISUALIZER & ORB)
-========================================= */
-.chaka-core {
+/* --- Center Stage (Visualizer) --- */
+.chaka-stage {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
-  z-index: 5;
 }
 
-.orb-wrapper {
-  position: relative;
-  width: 450px;
-  height: 450px;
+.visualizer-container {
+  width: 300px;
+  height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 40px;
 }
 
 #live-visualizer {
   width: 100%;
   height: 100%;
-  z-index: 2;
-  filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.1));
 }
 
-.orb-pulsar {
-  position: absolute;
-  width: 180px;
-  height: 180px;
-  background: radial-gradient(circle, var(--chaka-accent) 0%, transparent 60%);
-  border-radius: 50%;
-  filter: blur(50px);
-  opacity: 0.15;
-  animation: orbLevitate 6s infinite alternate ease-in-out;
-}
-
-@keyframes orbLevitate {
-  0% { transform: scale(0.9) translateY(10px); opacity: 0.1; }
-  100% { transform: scale(1.1) translateY(-10px); opacity: 0.2; }
-}
-
-/* =========================================
-   CHAT LOG (FLOATING TRANSCRIPTS)
-========================================= */
-.chaka-chat-log {
-  position: absolute;
-  bottom: 40px;
-  width: 100%;
-  max-width: 640px;
-  height: 180px;
+/* --- Text & Transcripts --- */
+.text-feedback-area {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  gap: 12px;
-  mask-image: linear-gradient(to top, black 60%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, black 60%, transparent 100%);
-  pointer-events: none;
-  z-index: 10;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  min-height: 120px;
+}
+
+.status-text {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  animation: pulseText 2s infinite;
+}
+
+@keyframes pulseText {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.transcript-box {
+  width: 100%;
+  text-align: center;
+  font-size: 20px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--text-primary);
   padding: 0 20px;
 }
 
-.live-msg {
-  padding: 14px 24px;
-  border-radius: 24px;
-  font-size: 15px;
-  line-height: 1.4;
-  align-self: center;
-  text-align: center;
-  max-width: 85%;
-  opacity: 0;
-  transform: translateY(15px) scale(0.98);
-  animation: transcriptIn 0.5s var(--bezier-smooth) forwards;
-}
-
-.live-msg.ai {
-  background: transparent;
-  color: var(--chaka-text-main);
-  font-weight: 400;
-}
-
-.live-msg.user {
-  background: var(--chaka-surface);
-  backdrop-filter: var(--chaka-blur);
-  -webkit-backdrop-filter: var(--chaka-blur);
-  border: 1px solid var(--chaka-border);
-  color: var(--chaka-text-muted);
-  font-weight: 500;
-  box-shadow: var(--chaka-shadow);
-}
-
-@keyframes transcriptIn {
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* =========================================
-   FOOTER ACTION BAR
-========================================= */
-.chaka-footer {
-  padding-bottom: 48px;
-  display: flex;
-  justify-content: center;
-  z-index: 15;
-}
-
-.action-bar {
+/* --- Bottom Controls --- */
+.chaka-controls {
+  height: 120px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  background: var(--chaka-surface);
-  backdrop-filter: var(--chaka-blur);
-  -webkit-backdrop-filter: var(--chaka-blur);
-  padding: 12px 16px;
-  border-radius: 100px;
-  border: 1px solid var(--chaka-border);
-  box-shadow: var(--chaka-shadow);
+  justify-content: center;
+  gap: 40px;
+  padding-bottom: 20px;
 }
 
-.chaka-icon-btn.mic {
-  width: 52px;
-  height: 52px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--chaka-border);
-  color: var(--chaka-text-main);
-}
-
-/* Recording State - Smooth Pulse */
-.chaka-icon-btn.mic.recording {
-  background: var(--chaka-record);
-  border-color: var(--chaka-record);
-  color: #fff;
-  animation: micActive 2s infinite ease-in-out;
-}
-
-@keyframes micActive {
-  0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
-  70% { box-shadow: 0 0 0 15px rgba(255, 59, 48, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
-}
-
-.chaka-primary-btn {
-  padding: 0 32px;
-  height: 52px;
-  border-radius: 100px;
-  border: none;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.5px;
-  background: var(--chaka-text-main);
-  color: var(--chaka-bg);
-  cursor: pointer;
-  transition: all 0.3s var(--bezier-smooth);
-}
-
-.chaka-primary-btn:hover {
-  transform: scale(1.02);
-  background: #fff;
-  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
-}
-
-/* =========================================
-   AUDIO FEEDBACK (VOL & MIC TEXT)
-========================================= */
-.audio-feedback {
+.action-btn {
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 16px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
 }
 
-.chaka-vol-meter {
-  width: 60px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  overflow: hidden;
-  display: none; /* Toggled by JS */
+.action-btn.secondary {
+  width: 50px;
+  height: 50px;
+  background: var(--app-surface);
+  color: var(--text-secondary);
 }
 
-.chaka-vol-bar {
-  height: 100%;
-  width: 0%;
-  background: var(--chaka-accent);
-  transition: width 0.05s linear;
+.action-btn.secondary:hover {
+  background: #2c2c2e;
+  color: var(--text-primary);
 }
 
-.chaka-mic-status {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--chaka-text-muted);
+.action-btn.primary-mic {
+  width: 72px;
+  height: 72px;
+  background: var(--app-surface);
+  color: var(--text-secondary);
+}
+
+.action-btn.primary-mic svg { width: 32px; height: 32px; }
+
+/* The Active/Listening State */
+.action-btn.primary-mic.active {
+  background: var(--brand-orange);
+  color: #fff;
+  box-shadow: 0 0 20px var(--brand-orange-glow);
 }
