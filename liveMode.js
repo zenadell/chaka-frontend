@@ -274,6 +274,12 @@ const LiveMode = {
                                     voice_name: voiceId
                                 }
                             }
+                        },
+                        // Force the model to ALWAYS think before speaking.
+                        // Without this, the model skips thinking on most turns,
+                        // leaving our emotion engine with nothing to analyze.
+                        thinking_config: {
+                            thinking_budget: 1024
                         }
                     }
                 }
