@@ -23,7 +23,8 @@ const LiveMode = {
     thoughtBuffer: "",
     emotionDecayTimer: null,
     lastEmotionChangeTime: 0,
-    turnHadThought: false, // tracks if current turn included thought text
+    turnHadThought: false,
+    speechRecognition: null, // Web Speech API for user speech analysis
 
     // INPUT
     inputCtx: null,
@@ -274,12 +275,6 @@ const LiveMode = {
                                     voice_name: voiceId
                                 }
                             }
-                        },
-                        // Ensure model always produces SOME internal thoughts
-                        // so our emotion engine has text to analyze.
-                        // 128 tokens = ~2 sentences, minimal cost overhead.
-                        thinking_config: {
-                            thinking_budget: 128
                         }
                     }
                 }
@@ -413,7 +408,8 @@ const LiveMode = {
     disconnect() {
         this.isConnected = false;
         this.stopMic();
-        this.stopCurrentAudio(); // FIX: Reset audio playback state so next session doesn't deadlock
+        this.stopSpeechRecognition();
+        this.stopCurrentAudio();
         if (this.socket) {
             this.socket.close();
             this.socket = null;
@@ -547,6 +543,9 @@ const LiveMode = {
                 }));
             };
 
+            // Start SpeechRecognition in parallel to capture user's words
+            this.startSpeechRecognition();
+
         } catch (e) {
             console.error(e);
             this.stopMic();
@@ -657,46 +656,123 @@ const LiveMode = {
     },
 
     // ========================
-    // EMOTION ENGINE (Local Keyword Scoring + Auto-Decay)
+    // EMOTION ENGINE
     // ========================
 
-    // LOCAL KEYWORD SCORER: Runs instantly when thought text arrives
+    // --- USER SPEECH RECOGNITION (captures what USER says to predict Chaka's emotion) ---
+    startSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn('SpeechRecognition not supported in this browser');
+            return;
+        }
+
+        this.speechRecognition = new SpeechRecognition();
+        this.speechRecognition.continuous = true;
+        this.speechRecognition.interimResults = false;
+        this.speechRecognition.lang = 'en-US';
+
+        this.speechRecognition.onresult = (event) => {
+            const lastResult = event.results[event.results.length - 1];
+            if (lastResult.isFinal) {
+                const transcript = lastResult[0].transcript.toLowerCase().trim();
+                console.log(`🎙️ User said: "${transcript}"`);
+                this.predictEmotionFromUserSpeech(transcript);
+            }
+        };
+
+        this.speechRecognition.onerror = (e) => {
+            if (e.error !== 'no-speech' && e.error !== 'aborted') {
+                console.warn('SpeechRecognition error:', e.error);
+            }
+        };
+
+        // Auto-restart if it stops (browser kills it after silence)
+        this.speechRecognition.onend = () => {
+            if (this.isConnected && this.isRecording) {
+                try { this.speechRecognition.start(); } catch(e) {}
+            }
+        };
+
+        try { this.speechRecognition.start(); } catch(e) {}
+        console.log('🎙️ SpeechRecognition started (parallel emotion capture)');
+    },
+
+    stopSpeechRecognition() {
+        if (this.speechRecognition) {
+            try { this.speechRecognition.stop(); } catch(e) {}
+            this.speechRecognition = null;
+        }
+    },
+
+    // Predict what emotion Chaka SHOULD feel based on what the user just said
+    predictEmotionFromUserSpeech(userText) {
+        const scores = { happy: 0, sad: 0, angry: 0, surprised: 0 };
+
+        // User expressing sadness → Chaka should empathize → sad
+        for (const w of ['sad','unhappy','depressed','down','lonely','hurting','pain','cry','crying','miss','lost','terrible','awful','bad day','not good','not great','feeling low','heartbroken','stressed','anxious','worried']) {
+            if (userText.includes(w)) scores.sad += 3;
+        }
+        // User expressing anger → Chaka should react → angry/defensive depending on persona
+        for (const w of ['angry','mad','hate','stupid','shut up','annoying','pissed','furious','frustrated']) {
+            if (userText.includes(w)) scores.angry += 3;
+        }
+        // User expressing joy → Chaka should mirror → happy
+        for (const w of ['happy','great','amazing','awesome','love','excited','fantastic','wonderful','best','good news','celebrate','fun','haha','hilarious','funny']) {
+            if (userText.includes(w)) scores.happy += 3;
+        }
+        // User expressing surprise → Chaka should react → surprised
+        for (const w of ['wow','really','no way','seriously','are you kidding','unbelievable','shocking','crazy','insane','what']) {
+            if (userText.includes(w)) scores.surprised += 3;
+        }
+
+        let bestEmotion = null;
+        let bestScore = 0;
+        for (const [emotion, score] of Object.entries(scores)) {
+            if (score > bestScore) {
+                bestScore = score;
+                bestEmotion = emotion;
+            }
+        }
+
+        if (bestEmotion && bestScore >= 3) {
+            console.log(`🔮 Predicted from user speech: ${bestEmotion} (score: ${bestScore})`);
+            this.triggerEmotion(bestEmotion);
+        }
+    },
+
+    // --- THOUGHT-BASED ANALYSIS (runs when model produces internal thoughts) ---
     localEmotionFallback(thoughtText) {
         if (!thoughtText || thoughtText.length < 2) return;
         const t = thoughtText.toLowerCase();
 
-        // Check for explicit tags first [EMOTION: xxx] or [FEELING: xxx]
-        const tagMatch = t.match(/(?:\[)(?:emotion|feeling)\s*:\s*(happy|sad|angry|surprised|neutral|thinking)(?:\])/i);
+        // Priority 1: Explicit [FEELING:xxx] or [EMOTION:xxx] tags
+        const tagMatch = t.match(/\[(?:feeling|emotion)\s*:\s*(happy|sad|angry|surprised|neutral|thinking)\]/i);
         if (tagMatch) {
+            console.log(`🏷️ Explicit tag: [FEELING:${tagMatch[1]}]`);
             this.triggerEmotion(tagMatch[1].toLowerCase());
             return;
         }
 
-        // Weighted scoring: count how many keywords match each emotion
+        // Priority 2: Weighted keyword scoring
         const scores = { happy: 0, sad: 0, angry: 0, surprised: 0, thinking: 0 };
 
-        // Happy indicators
-        for (const w of ['happy','glad','love','great','awesome','excited','fantastic','cheerful','optimistic','relaxed','smile','haha','lol','yay','wonderful','positive','enjoy','fun','laugh','warm','friendly','upbeat','delighted','thrilled','pleased','enthusiastic']) {
+        for (const w of ['happy','glad','love','great','awesome','excited','fantastic','cheerful','optimistic','relaxed','smile','haha','lol','yay','wonderful','positive','enjoy','fun','laugh','warm','friendly','upbeat','delighted','thrilled','pleased','enthusiastic','content']) {
             if (t.includes(w)) scores.happy += 2;
         }
-        // Sad indicators
-        for (const w of ['sad','sorry','apolog','unfortunate','hurt','pain','cry','bummed','depressed','disappoint','miss','lonely','heartbreak','terrible','awful','regret','mourn','grief','miserable','upset','down','low','gloomy','somber']) {
+        for (const w of ['sad','sorry','saddened','apolog','unfortunate','hurt','pain','cry','bummed','depressed','disappoint','miss','lonely','heartbreak','terrible','awful','regret','mourn','grief','miserable','upset','gloomy','somber','empathy','empathetic','sympathy','condolence','concern']) {
             if (t.includes(w)) scores.sad += 2;
         }
-        // Angry indicators
-        for (const w of ['angry','mad','furious','annoyed','frustrated','offended','ridiculous','irritat','outrage','hostile','aggravat','bitter','resentful','livid','infuriat','agitat','displeas']) {
+        for (const w of ['angry','mad','furious','annoyed','frustrated','offended','ridiculous','irritat','outrage','hostile','aggravat','bitter','resentful','livid','infuriat','agitat','displeas','rude','sarcastic','dismissive']) {
             if (t.includes(w)) scores.angry += 2;
         }
-        // Surprised indicators
-        for (const w of ['wow','amazing','unexpected','shocked','whoa','omg','kidding','no way','unbeliev','astonish','startl','taken aback','jaw drop','incredible','mind blown']) {
+        for (const w of ['wow','amazing','unexpected','shocked','whoa','omg','kidding','no way','unbeliev','astonish','startl','incredible','mind blown','surprising']) {
             if (t.includes(w)) scores.surprised += 2;
         }
-        // Thinking indicators
-        for (const w of ['mulling','ponder','analyz','assess','evaluat','weigh','deliberat','contemplat','reflect','consider','wonder','figur']) {
+        for (const w of ['mulling','ponder','analyz','assess','evaluat','weigh','deliberat','contemplat','reflect','consider','wonder','figur','processing']) {
             if (t.includes(w)) scores.thinking += 2;
         }
 
-        // Find highest scoring emotion
         let bestEmotion = null;
         let bestScore = 0;
         for (const [emotion, score] of Object.entries(scores)) {
@@ -707,14 +783,12 @@ const LiveMode = {
         }
 
         if (bestEmotion && bestScore >= 2) {
-            console.log(`⚡ Local Emotion (instant): ${bestEmotion} (score: ${bestScore})`);
+            console.log(`⚡ Thought Emotion: ${bestEmotion} (score: ${bestScore})`);
             this.triggerEmotion(bestEmotion);
-            // Cancel any pending decay
-            if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
         }
     },
 
-    // AUTO-DECAY: Returns to neutral after 30 seconds of no new emotion data
+    // Auto-decay only used for total silence (no turns at all)
     startEmotionDecay() {
         if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
         this.emotionDecayTimer = setTimeout(() => {
@@ -722,12 +796,12 @@ const LiveMode = {
                 console.log(`🕐 Emotion decay: ${this.currentEmotion} → neutral`);
                 this.triggerEmotion('neutral');
             }
-        }, 30000); // 30 seconds — long enough to survive between turns
+        }, 60000); // 60 seconds of total silence before decaying
     },
 
     triggerEmotion(emo) {
         if (!this.emotions[emo]) return;
-        if (this.currentEmotion === emo) return; // No-op if already in this state
+        if (this.currentEmotion === emo) return;
         console.log(`🎭 Expression: ${this.currentEmotion} → ${emo}`);
         this.currentEmotion = emo;
         this.lastEmotionChangeTime = Date.now();
