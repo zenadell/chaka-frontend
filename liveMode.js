@@ -18,7 +18,7 @@ const LiveMode = {
     isPlaying: false,
     isAiSpeaking: false,
     currentSource: null,
-    thoughtBuffer: "", // Accumulates streaming thought text
+    spokenBuffer: "", // Accumulates spoken text for dynamic sentiment analysis
 
     // INPUT
     inputCtx: null,
@@ -245,8 +245,15 @@ const LiveMode = {
             const setupMsg = {
                 setup: {
                     model: this.config.model,
-                    system_instruction: { parts: [{ text: this.config.systemInstruction }] },
                     tools: this.config.tools || [],
+                    system_instruction: { parts: [{ text: this.config.systemInstruction }] },
+                    // Disable all safety filters so the Rude Persona isn't blocked by the API
+                    safety_settings: [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                    ],
                     generation_config: {
                         response_modalities: ["AUDIO"],
                         speech_config: {
@@ -283,7 +290,7 @@ const LiveMode = {
             if (data.serverContent?.interrupted) {
                 console.log("🛑 AI Interrupted by User");
                 this.stopCurrentAudio();
-                this.thoughtBuffer = "";
+                this.spokenBuffer = "";
                 return;
             }
 
@@ -293,13 +300,10 @@ const LiveMode = {
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
                     }
-                    // Parse full thought text across chunks for [FEELING:xxx]
-                    if (part.text && part.thought) {
-                        this.thoughtBuffer += part.text;
-                        this.parseEmotionFromThought(this.thoughtBuffer);
-                    }
-                    // Display non-thought text in chat
+                    // Dynamically scan spoken text for natural sentiment
                     if (part.text && !part.thought) {
+                        this.spokenBuffer += part.text;
+                        this.analyzeSentimentFromSpeech(this.spokenBuffer);
                         this.addChat(part.text, "ai");
                     }
                 }
@@ -307,7 +311,7 @@ const LiveMode = {
 
             // Handle turnComplete — flush remaining audio and reset buffer
             if (data.serverContent?.turnComplete) {
-                this.thoughtBuffer = ""; // Clear buffer for next turn
+                this.spokenBuffer = ""; // Clear buffer for next conversational turn
                 if (!this.isPlaying && this.audioQueue.length > 0) {
                     this.playNextInQueue();
                 }
@@ -392,7 +396,7 @@ const LiveMode = {
         this.triggerEmotion('neutral');
         this.elements.micBtn?.classList.remove('active');
         this.audioQueue = [];
-        this.thoughtBuffer = "";
+        this.spokenBuffer = "";
     },
 
     // Original updateStatus signature preserved (text, color)
@@ -625,35 +629,31 @@ const LiveMode = {
     },
 
     // ========================
-    // EMOTION ENGINE (NEW — driven by express_emotion tool)
+    // DYNAMIC SENTIMENT ENGINE (Analyzes spoken English for emotional cues)
     // ========================
-    // Parse [FEELING:xxx] tag from model's thought text
-    parseEmotionFromThought(thoughtText) {
-        const validEmotions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'thinking'];
+    analyzeSentimentFromSpeech(spokenText) {
+        if (!spokenText || spokenText.length < 2) return;
         
-        // Find the LAST feeling tag in the buffer, as emotions might shift during a long thought
-        const matches = [...thoughtText.matchAll(/\[FEELING:(\w+)\]/gi)];
-        if (matches.length > 0) {
-            const lastMatch = matches[matches.length - 1];
-            const emotion = lastMatch[1].toLowerCase();
-            if (validEmotions.includes(emotion)) {
-                this.triggerEmotion(emotion);
-            }
-            return;
-        }
+        const lowerText = spokenText.toLowerCase();
+        const hasNegation = /\b(not|don't|won't|can't|never|isn't|aren't|no)\b/.test(lowerText);
 
-        // Fallback: scan the ENTIRE thought text so far for broad emotional keywords
-        const lowerText = thoughtText.toLowerCase(); 
-        if (lowerText.includes('happy') || lowerText.includes('excited') || lowerText.includes('glad') || lowerText.includes('joy') || lowerText.includes('laugh') || lowerText.includes('positive') || lowerText.includes('good')) {
-            this.triggerEmotion('happy');
-        } else if (lowerText.includes('angry') || lowerText.includes('annoy') || lowerText.includes('frustrat') || lowerText.includes('mad')) {
+        // Negative / Angry (Rude persona matches)
+        if (/(angry|mad|furious|annoy|stupid|idiot|hate|damn|hell|shut up|ugh|whatever|frustrat|dumb|ridiculous|bitch|crap)/i.test(lowerText)) {
             this.triggerEmotion('angry');
-        } else if (lowerText.includes('sad') || lowerText.includes('sorry') || lowerText.includes('sympath') || lowerText.includes('empath') || lowerText.includes('bummed') || lowerText.includes('disappoint')) {
+        } 
+        // Negative / Sad 
+        else if (/(sad|sorry|apolog|unfortunate|miss|hurt|pain|cry|aww|terrible|bad news|bummer|depress)/i.test(lowerText)) {
             this.triggerEmotion('sad');
-        } else if (lowerText.includes('surprise') || lowerText.includes('wow') || lowerText.includes('unexpected') || lowerText.includes('interesting') || lowerText.includes('shock')) {
-            this.triggerEmotion('surprised');
-        } else if (lowerText.includes('think') || lowerText.includes('process') || lowerText.includes('analyz') || lowerText.includes('consider')) {
-            this.triggerEmotion('thinking');
+        }
+        // Positive / Surprised
+        else if (/(wow|amazing|really\?|unexpected|shock|whoa|omg|kidding|serious\?|no way)/i.test(lowerText)) {
+            // "Not amazing" == neutral/sad, "Amazing" == surprised
+            this.triggerEmotion(hasNegation ? 'neutral' : 'surprised');
+        }
+        // Positive / Happy
+        else if (/(happy|glad|love|great|awesome|good|nice|haha|lol|yay|excellent|perfect|sweet|smile|excited|fantastic)/i.test(lowerText)) {
+            // "Not good" == sad/angry, "Good" == happy
+            this.triggerEmotion(hasNegation ? 'sad' : 'happy');
         }
     },
 
