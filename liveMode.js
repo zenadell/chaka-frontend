@@ -18,7 +18,7 @@ const LiveMode = {
     isPlaying: false,
     isAiSpeaking: false,
     currentSource: null,
-    spokenBuffer: "", // Accumulates spoken text for dynamic sentiment analysis
+    thoughtBuffer: "", // Accumulates internal thought text for sentiment analysis
 
     // INPUT
     inputCtx: null,
@@ -245,10 +245,17 @@ const LiveMode = {
             const setupMsg = {
                 setup: {
                     model: this.config.model,
-                    tools: this.config.tools || [],
                     system_instruction: { parts: [{ text: this.config.systemInstruction }] },
-                    // Disable all safety filters so the Rude Persona isn't blocked by the API
+                    tools: this.config.tools || [],
+                    // Disable all safety filters to unblock aggressive/rude personas
+                    // Providing both standard formats used by the Multimodal Live API
                     safety_settings: [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                    ],
+                    safetySettings: [
                         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
                         { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
@@ -290,7 +297,7 @@ const LiveMode = {
             if (data.serverContent?.interrupted) {
                 console.log("🛑 AI Interrupted by User");
                 this.stopCurrentAudio();
-                this.spokenBuffer = "";
+                this.thoughtBuffer = "";
                 return;
             }
 
@@ -300,10 +307,13 @@ const LiveMode = {
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
                     }
-                    // Dynamically scan spoken text for natural sentiment
+                    // Dynamically scan THOUGHT text for inner sentiment
+                    if (part.text && part.thought) {
+                        this.thoughtBuffer += part.text;
+                        this.analyzeSentimentFromThought(this.thoughtBuffer);
+                    }
+                    // Live API doesn't usually send !thought text when audio is playing, but just in case:
                     if (part.text && !part.thought) {
-                        this.spokenBuffer += part.text;
-                        this.analyzeSentimentFromSpeech(this.spokenBuffer);
                         this.addChat(part.text, "ai");
                     }
                 }
@@ -311,7 +321,7 @@ const LiveMode = {
 
             // Handle turnComplete — flush remaining audio and reset buffer
             if (data.serverContent?.turnComplete) {
-                this.spokenBuffer = ""; // Clear buffer for next conversational turn
+                this.thoughtBuffer = ""; // Clear buffer for next conversational turn
                 if (!this.isPlaying && this.audioQueue.length > 0) {
                     this.playNextInQueue();
                 }
@@ -396,7 +406,7 @@ const LiveMode = {
         this.triggerEmotion('neutral');
         this.elements.micBtn?.classList.remove('active');
         this.audioQueue = [];
-        this.spokenBuffer = "";
+        this.thoughtBuffer = "";
     },
 
     // Original updateStatus signature preserved (text, color)
@@ -629,12 +639,12 @@ const LiveMode = {
     },
 
     // ========================
-    // DYNAMIC SENTIMENT ENGINE (Analyzes spoken English for emotional cues)
+    // DYNAMIC SENTIMENT ENGINE (Analyzes LLM's inner thoughts for emotional cues)
     // ========================
-    analyzeSentimentFromSpeech(spokenText) {
-        if (!spokenText || spokenText.length < 2) return;
+    analyzeSentimentFromThought(thoughtText) {
+        if (!thoughtText || thoughtText.length < 2) return;
         
-        const lowerText = spokenText.toLowerCase();
+        const lowerText = thoughtText.toLowerCase();
         const hasNegation = /\b(not|don't|won't|can't|never|isn't|aren't|no)\b/.test(lowerText);
 
         // Negative / Angry (Rude persona matches)
