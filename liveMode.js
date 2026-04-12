@@ -639,26 +639,47 @@ const LiveMode = {
     },
 
     // ========================
-    // DYNAMIC SENTIMENT ENGINE (Analyzes LLM's inner thoughts for emotional cues)
+    // HYBRID EMOTION ENGINE (Multi-Layered Detection)
     // ========================
     analyzeSentimentFromThought(thoughtText) {
         if (!thoughtText || thoughtText.length < 2) return;
-        
         const lowerText = thoughtText.toLowerCase();
 
-        // Dictionary of strong emotional triggers
+        // LAYER 1: Explicit LLM Tag Matching (Highest Priority)
+        // Searches for [EMOTION: happy], [FEELING: sad], EMOTION: angry, etc.
+        const tagRegex = /(?:\[|\b)(?:emotion|feeling)\s*:\s*(happy|sad|angry|surprised|neutral|thinking)(?:\]|\b)/gi;
+        const tagMatches = [...lowerText.matchAll(tagRegex)];
+        if (tagMatches.length > 0) {
+            // Use the absolute latest tag the LLM explicitly defined
+            const explicitEmotion = tagMatches[tagMatches.length - 1][1].toLowerCase();
+            this.triggerEmotion(explicitEmotion);
+            return; // Stop here, the LLM has explicitly commanded the state
+        }
+
+        // LAYER 2: Markdown Header Matching (e.g. **Feeling Disappointed** -> sad)
+        const headerRegex = /\*\*(?:feeling|emotion|state)?:?\s*([a-z]+)[^\*]*\*\*/gi;
+        const headerMatches = [...lowerText.matchAll(headerRegex)];
+        if (headerMatches.length > 0) {
+            const headerWord = headerMatches[headerMatches.length - 1][1].toLowerCase();
+            const mappedHeader = this.mapWordToEmotion(headerWord);
+            if (mappedHeader) {
+                this.triggerEmotion(mappedHeader);
+                return;
+            }
+        }
+
+        // LAYER 3: Semantic Keyword Fallback (Matches underlying conversational tone if tags fail)
         const stateEmotions = {
             angry: /(?:\b)(angry|mad|furious|annoyed|stupid|idiot|hate|frustrated|offended|ridiculous)(?:\b)/g,
             sad: /(?:\b)(sad|sorry|apolog|unfortunate|hurt|pain|cry|bad news|bummed|depressed|disappoint)(?:\b)/g,
             surprised: /(?:\b)(wow|amazing|unexpected|shocked|whoa|omg|kidding|serious|no way)(?:\b)/g,
             happy: /(?:\b)(happy|glad|love|great|awesome|good|nice|haha|lol|yay|excellent|perfect|sweet|smile|excited|fantastic|cheerful)(?:\b)/g,
-            thinking: /(?:\b)(wondering|processing|analyzing|calculating|thinking|considering)(?:\b)/g
+            thinking: /(?:\b)(wondering|processing|analyzing|calculating|considering)(?:\b)/g
         };
 
         let lastEmotion = null;
         let lastMatchIdx = -1;
 
-        // Find the LATEST matched keyword across all mapped emotions in the thought
         for (const [emotion, regex] of Object.entries(stateEmotions)) {
             let match;
             while ((match = regex.exec(lowerText)) !== null) {
@@ -670,12 +691,10 @@ const LiveMode = {
         }
 
         if (lastEmotion && this.currentEmotion !== lastEmotion) {
-            // Check for immediate preceding negation (e.g. "not happy", "isn't mad") within 15 chars before keyword
             const prefix = lowerText.substring(Math.max(0, lastMatchIdx - 15), lastMatchIdx);
             const isNegated = /\b(not|no|don't|isn't|aren't|never)\s+$/.test(prefix);
             
             if (isNegated) {
-                // Invert the emotion smoothly if negated
                 if (lastEmotion === 'happy') this.triggerEmotion('sad');
                 else if (lastEmotion === 'angry' || lastEmotion === 'sad') this.triggerEmotion('happy');
                 else this.triggerEmotion('neutral');
@@ -683,6 +702,16 @@ const LiveMode = {
                 this.triggerEmotion(lastEmotion);
             }
         }
+    },
+
+    // Helper for Layer 2 mapping
+    mapWordToEmotion(word) {
+        if (['angry', 'mad', 'frustrated', 'annoyed'].includes(word)) return 'angry';
+        if (['sad', 'disappointed', 'sorry', 'bummed'].includes(word)) return 'sad';
+        if (['surprised', 'shocked', 'unexpected'].includes(word)) return 'surprised';
+        if (['happy', 'cheerful', 'positive', 'excited', 'glad'].includes(word)) return 'happy';
+        if (['thinking', 'considering', 'processing'].includes(word)) return 'thinking';
+        return null; // Let it fall through to semantic search
     },
 
     triggerEmotion(emo) {
