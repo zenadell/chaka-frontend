@@ -18,7 +18,12 @@ const LiveMode = {
     isPlaying: false,
     isAiSpeaking: false,
     currentSource: null,
-    thoughtBuffer: "", // Accumulates internal thought text for sentiment analysis
+
+    // EMOTION ENGINE STATE
+    thoughtBuffer: "",
+    emotionDecayTimer: null,
+    lastEmotionChangeTime: 0,
+    turnHadThought: false, // tracks if current turn included thought text
 
     // INPUT
     inputCtx: null,
@@ -298,6 +303,7 @@ const LiveMode = {
                 console.log("🛑 AI Interrupted by User");
                 this.stopCurrentAudio();
                 this.thoughtBuffer = "";
+                this.turnHadThought = false;
                 return;
             }
 
@@ -307,21 +313,31 @@ const LiveMode = {
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
                     }
-                    // Dynamically scan THOUGHT text for inner sentiment
+                    // Capture thought text for emotion analysis
                     if (part.text && part.thought) {
+                        this.turnHadThought = true;
                         this.thoughtBuffer += part.text;
-                        this.analyzeSentimentFromThought(this.thoughtBuffer);
+                        // LAYER 2 (Instant): Run local keyword analysis immediately
+                        this.localEmotionFallback(this.thoughtBuffer);
                     }
-                    // Live API doesn't usually send !thought text when audio is playing, but just in case:
                     if (part.text && !part.thought) {
                         this.addChat(part.text, "ai");
                     }
                 }
             }
 
-            // Handle turnComplete — flush remaining audio and reset buffer
+            // Handle turnComplete — fire AI classifier + manage decay
             if (data.serverContent?.turnComplete) {
-                this.thoughtBuffer = ""; // Clear buffer for next conversational turn
+                // LAYER 1 (Accurate): If we had thought text, send it to AI classifier
+                if (this.turnHadThought && this.thoughtBuffer.length > 5) {
+                    this.classifyEmotionViaAI(this.thoughtBuffer);
+                }
+                // LAYER 3: If NO thought text at all, start decay timer
+                if (!this.turnHadThought) {
+                    this.startEmotionDecay();
+                }
+                this.thoughtBuffer = "";
+                this.turnHadThought = false;
                 if (!this.isPlaying && this.audioQueue.length > 0) {
                     this.playNextInQueue();
                 }
@@ -407,6 +423,8 @@ const LiveMode = {
         this.elements.micBtn?.classList.remove('active');
         this.audioQueue = [];
         this.thoughtBuffer = "";
+        this.turnHadThought = false;
+        if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
     },
 
     // Original updateStatus signature preserved (text, color)
@@ -639,84 +657,110 @@ const LiveMode = {
     },
 
     // ========================
-    // HYBRID EMOTION ENGINE (Multi-Layered Detection)
+    // 4-LAYER EMOTION ENGINE
     // ========================
-    analyzeSentimentFromThought(thoughtText) {
-        if (!thoughtText || thoughtText.length < 2) return;
-        const lowerText = thoughtText.toLowerCase();
 
-        // LAYER 1: Explicit LLM Tag Matching (Highest Priority)
-        // Searches for [EMOTION: happy], [FEELING: sad], EMOTION: angry, etc.
-        const tagRegex = /(?:\[|\b)(?:emotion|feeling)\s*:\s*(happy|sad|angry|surprised|neutral|thinking)(?:\]|\b)/gi;
-        const tagMatches = [...lowerText.matchAll(tagRegex)];
-        if (tagMatches.length > 0) {
-            // Use the absolute latest tag the LLM explicitly defined
-            const explicitEmotion = tagMatches[tagMatches.length - 1][1].toLowerCase();
-            this.triggerEmotion(explicitEmotion);
-            return; // Stop here, the LLM has explicitly commanded the state
-        }
+    // LAYER 1: AI-Powered Classification (most accurate, async)
+    async classifyEmotionViaAI(thoughtText) {
+        try {
+            const apiBase = window.BACKEND_URL || "";
+            const headers = (typeof getAuthHeaders === 'function') ? await getAuthHeaders() : {};
+            headers['Content-Type'] = 'application/json';
 
-        // LAYER 2: Markdown Header Matching (e.g. **Feeling Disappointed** -> sad)
-        const headerRegex = /\*\*(?:feeling|emotion|state)?:?\s*([a-z]+)[^\*]*\*\*/gi;
-        const headerMatches = [...lowerText.matchAll(headerRegex)];
-        if (headerMatches.length > 0) {
-            const headerWord = headerMatches[headerMatches.length - 1][1].toLowerCase();
-            const mappedHeader = this.mapWordToEmotion(headerWord);
-            if (mappedHeader) {
-                this.triggerEmotion(mappedHeader);
-                return;
-            }
-        }
+            const resp = await fetch(`${apiBase}/api/tools/classify-emotion`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ text: thoughtText.substring(0, 500) })
+            });
 
-        // LAYER 3: Semantic Keyword Fallback (Matches underlying conversational tone if tags fail)
-        const stateEmotions = {
-            angry: /(?:\b)(angry|mad|furious|annoyed|stupid|idiot|hate|frustrated|offended|ridiculous)(?:\b)/g,
-            sad: /(?:\b)(sad|sorry|apolog|unfortunate|hurt|pain|cry|bad news|bummed|depressed|disappoint)(?:\b)/g,
-            surprised: /(?:\b)(wow|amazing|unexpected|shocked|whoa|omg|kidding|serious|no way)(?:\b)/g,
-            happy: /(?:\b)(happy|glad|love|great|awesome|good|nice|haha|lol|yay|excellent|perfect|sweet|smile|excited|fantastic|cheerful)(?:\b)/g,
-            thinking: /(?:\b)(wondering|processing|analyzing|calculating|considering)(?:\b)/g
-        };
-
-        let lastEmotion = null;
-        let lastMatchIdx = -1;
-
-        for (const [emotion, regex] of Object.entries(stateEmotions)) {
-            let match;
-            while ((match = regex.exec(lowerText)) !== null) {
-                if (match.index > lastMatchIdx) {
-                    lastMatchIdx = match.index;
-                    lastEmotion = emotion;
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.emotion && this.emotions[data.emotion]) {
+                    console.log(`🧠 AI Emotion: ${data.emotion}`);
+                    this.triggerEmotion(data.emotion);
+                    // Cancel any pending decay since we got a real classification
+                    if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
+                    // Start fresh decay from this point
+                    this.startEmotionDecay();
                 }
             }
-        }
-
-        if (lastEmotion && this.currentEmotion !== lastEmotion) {
-            const prefix = lowerText.substring(Math.max(0, lastMatchIdx - 15), lastMatchIdx);
-            const isNegated = /\b(not|no|don't|isn't|aren't|never)\s+$/.test(prefix);
-            
-            if (isNegated) {
-                if (lastEmotion === 'happy') this.triggerEmotion('sad');
-                else if (lastEmotion === 'angry' || lastEmotion === 'sad') this.triggerEmotion('happy');
-                else this.triggerEmotion('neutral');
-            } else {
-                this.triggerEmotion(lastEmotion);
-            }
+        } catch (e) {
+            console.warn('Emotion classify failed:', e.message);
+            // Local fallback already ran, so this is fine
         }
     },
 
-    // Helper for Layer 2 mapping
-    mapWordToEmotion(word) {
-        if (['angry', 'mad', 'frustrated', 'annoyed'].includes(word)) return 'angry';
-        if (['sad', 'disappointed', 'sorry', 'bummed'].includes(word)) return 'sad';
-        if (['surprised', 'shocked', 'unexpected'].includes(word)) return 'surprised';
-        if (['happy', 'cheerful', 'positive', 'excited', 'glad'].includes(word)) return 'happy';
-        if (['thinking', 'considering', 'processing'].includes(word)) return 'thinking';
-        return null; // Let it fall through to semantic search
+    // LAYER 2: Instant Local Keyword Analysis (runs immediately while AI classifies)
+    localEmotionFallback(thoughtText) {
+        if (!thoughtText || thoughtText.length < 2) return;
+        const t = thoughtText.toLowerCase();
+
+        // Check for explicit tags first [EMOTION: xxx] or [FEELING: xxx]
+        const tagMatch = t.match(/(?:\[)(?:emotion|feeling)\s*:\s*(happy|sad|angry|surprised|neutral|thinking)(?:\])/i);
+        if (tagMatch) {
+            this.triggerEmotion(tagMatch[1].toLowerCase());
+            return;
+        }
+
+        // Weighted scoring: count how many keywords match each emotion
+        const scores = { happy: 0, sad: 0, angry: 0, surprised: 0, thinking: 0 };
+
+        // Happy indicators
+        for (const w of ['happy','glad','love','great','awesome','excited','fantastic','cheerful','optimistic','relaxed','smile','haha','lol','yay','wonderful','positive','enjoy','fun','laugh','warm','friendly','upbeat','delighted','thrilled','pleased','enthusiastic']) {
+            if (t.includes(w)) scores.happy += 2;
+        }
+        // Sad indicators
+        for (const w of ['sad','sorry','apolog','unfortunate','hurt','pain','cry','bummed','depressed','disappoint','miss','lonely','heartbreak','terrible','awful','regret','mourn','grief','miserable','upset','down','low','gloomy','somber']) {
+            if (t.includes(w)) scores.sad += 2;
+        }
+        // Angry indicators
+        for (const w of ['angry','mad','furious','annoyed','frustrated','offended','ridiculous','irritat','outrage','hostile','aggravat','bitter','resentful','livid','infuriat','agitat','displeas']) {
+            if (t.includes(w)) scores.angry += 2;
+        }
+        // Surprised indicators
+        for (const w of ['wow','amazing','unexpected','shocked','whoa','omg','kidding','no way','unbeliev','astonish','startl','taken aback','jaw drop','incredible','mind blown']) {
+            if (t.includes(w)) scores.surprised += 2;
+        }
+        // Thinking indicators
+        for (const w of ['mulling','ponder','analyz','assess','evaluat','weigh','deliberat','contemplat','reflect','consider','wonder','figur']) {
+            if (t.includes(w)) scores.thinking += 2;
+        }
+
+        // Find highest scoring emotion
+        let bestEmotion = null;
+        let bestScore = 0;
+        for (const [emotion, score] of Object.entries(scores)) {
+            if (score > bestScore) {
+                bestScore = score;
+                bestEmotion = emotion;
+            }
+        }
+
+        if (bestEmotion && bestScore >= 2) {
+            console.log(`⚡ Local Emotion (instant): ${bestEmotion} (score: ${bestScore})`);
+            this.triggerEmotion(bestEmotion);
+            // Cancel any pending decay
+            if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
+        }
+    },
+
+    // LAYER 3: Auto-Decay Timer (returns to neutral when no new emotion data arrives)
+    startEmotionDecay() {
+        if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
+        this.emotionDecayTimer = setTimeout(() => {
+            if (this.currentEmotion !== 'neutral') {
+                console.log(`🕐 Emotion decay: ${this.currentEmotion} → neutral`);
+                this.triggerEmotion('neutral');
+            }
+        }, 10000); // Decay to neutral after 10 seconds of no new emotion data
     },
 
     triggerEmotion(emo) {
         if (!this.emotions[emo]) return;
+        if (this.currentEmotion === emo) return; // No-op if already in this state
+        console.log(`🎭 Expression: ${this.currentEmotion} → ${emo}`);
         this.currentEmotion = emo;
+        this.lastEmotionChangeTime = Date.now();
     },
 
     lerpColor(curr, target, ease) {
