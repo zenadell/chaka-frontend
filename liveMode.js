@@ -383,6 +383,7 @@ const LiveMode = {
     disconnect() {
         this.isConnected = false;
         this.stopMic();
+        this.stopCurrentAudio(); // FIX: Reset audio playback state so next session doesn't deadlock
         if (this.socket) {
             this.socket.close();
             this.socket = null;
@@ -391,6 +392,7 @@ const LiveMode = {
         this.triggerEmotion('neutral');
         this.elements.micBtn?.classList.remove('active');
         this.audioQueue = [];
+        this.thoughtBuffer = "";
     },
 
     // Original updateStatus signature preserved (text, color)
