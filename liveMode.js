@@ -640,16 +640,18 @@ const LiveMode = {
             return;
         }
 
-        // Fallback: scan just the recent additions to the thought text for keywords
-        const lowerText = thoughtText.slice(-50).toLowerCase(); 
-        if (lowerText.includes('happy') || lowerText.includes('excited') || lowerText.includes('glad') || lowerText.includes('joy') || lowerText.includes('laughing')) {
+        // Fallback: scan the ENTIRE thought text so far for broad emotional keywords
+        const lowerText = thoughtText.toLowerCase(); 
+        if (lowerText.includes('happy') || lowerText.includes('excited') || lowerText.includes('glad') || lowerText.includes('joy') || lowerText.includes('laugh') || lowerText.includes('positive') || lowerText.includes('good')) {
             this.triggerEmotion('happy');
-        } else if (lowerText.includes('angry') || lowerText.includes('annoyed') || lowerText.includes('frustrating') || lowerText.includes('mad')) {
+        } else if (lowerText.includes('angry') || lowerText.includes('annoy') || lowerText.includes('frustrat') || lowerText.includes('mad')) {
             this.triggerEmotion('angry');
-        } else if (lowerText.includes('sad') || lowerText.includes('sorry') || lowerText.includes('sympath') || lowerText.includes('empath')) {
+        } else if (lowerText.includes('sad') || lowerText.includes('sorry') || lowerText.includes('sympath') || lowerText.includes('empath') || lowerText.includes('bummed') || lowerText.includes('disappoint')) {
             this.triggerEmotion('sad');
-        } else if (lowerText.includes('surprise') || lowerText.includes('wow') || lowerText.includes('unexpected') || lowerText.includes('interesting')) {
+        } else if (lowerText.includes('surprise') || lowerText.includes('wow') || lowerText.includes('unexpected') || lowerText.includes('interesting') || lowerText.includes('shock')) {
             this.triggerEmotion('surprised');
+        } else if (lowerText.includes('think') || lowerText.includes('process') || lowerText.includes('analyz') || lowerText.includes('consider')) {
+            this.triggerEmotion('thinking');
         }
     },
 
