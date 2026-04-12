@@ -407,11 +407,17 @@ const LiveMode = {
     // ========================
     disconnect() {
         this.isConnected = false;
-        this.stopMic();
-        this.stopSpeechRecognition();
-        this.stopCurrentAudio();
+        
+        // Wrap cleanup in try/catch to avoid freezing the UI if AudioContext state is weird
+        try { this.stopMic(); } catch(e) { console.warn("stopMic failed:", e) }
+        try { this.stopSpeechRecognition(); } catch(e) {}
+        try { this.stopCurrentAudio(); } catch(e) {}
+        
         if (this.socket) {
-            this.socket.close();
+            // Unbind to prevent recursive errors
+            this.socket.onclose = null;
+            this.socket.onerror = null;
+            try { this.socket.close(); } catch(e) {}
             this.socket = null;
         }
         this.updateStatus("SYSTEM READY", "#8e8e93");
@@ -557,12 +563,25 @@ const LiveMode = {
         this.isRecording = false;
         this.elements.micBtn.classList.remove("active");
 
-        if (this.micStream) this.micStream.getTracks().forEach(t => t.stop());
-        if (this.inputCtx) this.inputCtx.close();
-        if (this.processor) this.processor.disconnect();
+        if (this.micStream) {
+            this.micStream.getTracks().forEach(t => t.stop());
+            this.micStream = null;
+        }
+        if (this.inputCtx && this.inputCtx.state !== 'closed') {
+            try { this.inputCtx.close().catch(e => console.warn(e)); } catch(e){}
+        }
+        if (this.processor) {
+            try { this.processor.disconnect(); } catch(e){}
+        }
     },
 
     toggleMic() {
+        // If system crashed or disconnected and user clicks mic again, reconnect seamlessly!
+        if (!this.isConnected) {
+            console.log("🔄 User requested reconnect via Mic button");
+            this.connect();
+            return;
+        }
         this.isRecording ? this.stopMic() : this.startMic();
     },
 
@@ -676,8 +695,13 @@ const LiveMode = {
             const lastResult = event.results[event.results.length - 1];
             if (lastResult.isFinal) {
                 const transcript = lastResult[0].transcript.toLowerCase().trim();
-                console.log(`🎙️ User said: "${transcript}"`);
-                this.predictEmotionFromUserSpeech(transcript);
+                
+                // CRITICAL FIX: Only predict emotion if AI is NOT currently speaking
+                // Otherwise the mic picks up her own voice from the speakers!
+                if (!this.isAiSpeaking) {
+                    console.log(`🎙️ User said: "${transcript}"`);
+                    this.predictEmotionFromUserSpeech(transcript);
+                }
             }
         };
 
@@ -707,22 +731,26 @@ const LiveMode = {
 
     // Predict what emotion Chaka SHOULD feel based on what the user just said
     predictEmotionFromUserSpeech(userText) {
+        // Must be a substantial sentence to trigger, skip empty or 1 word like "what"
+        if (!userText || userText.length < 3) return;
+
         const scores = { happy: 0, sad: 0, angry: 0, surprised: 0 };
 
         // User expressing sadness → Chaka should empathize → sad
-        for (const w of ['sad','unhappy','depressed','down','lonely','hurting','pain','cry','crying','miss','lost','terrible','awful','bad day','not good','not great','feeling low','heartbroken','stressed','anxious','worried']) {
+        for (const w of ['sad','unhappy','depressed','lonely','hurting','pain','crying','terrible','awful','bad day','not doing good','feeling low','heartbroken','stressed','anxious','worried']) {
             if (userText.includes(w)) scores.sad += 3;
         }
         // User expressing anger → Chaka should react → angry/defensive depending on persona
-        for (const w of ['angry','mad','hate','stupid','shut up','annoying','pissed','furious','frustrated']) {
+        for (const w of ['angry','mad','hate you','stupid','shut up','annoying','pissed','furious','frustrated']) {
             if (userText.includes(w)) scores.angry += 3;
         }
         // User expressing joy → Chaka should mirror → happy
-        for (const w of ['happy','great','amazing','awesome','love','excited','fantastic','wonderful','best','good news','celebrate','fun','haha','hilarious','funny']) {
+        for (const w of ['happy','great','amazing','awesome','love it','excited','fantastic','wonderful','best news','good news','celebrate','hilarious','funny']) {
             if (userText.includes(w)) scores.happy += 3;
         }
         // User expressing surprise → Chaka should react → surprised
-        for (const w of ['wow','really','no way','seriously','are you kidding','unbelievable','shocking','crazy','insane','what']) {
+        // Removed generic "what" as it causes too many false positives on "what's up"
+        for (const w of ['wow','no way','seriously','are you kidding','unbelievelable','shocking','insane','omg','oh my god']) {
             if (userText.includes(w)) scores.surprised += 3;
         }
 
