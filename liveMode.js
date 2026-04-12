@@ -736,8 +736,8 @@ const LiveMode = {
 
         const scores = { happy: 0, sad: 0, angry: 0, surprised: 0 };
 
-        // User expressing sadness → Chaka should empathize → sad
-        for (const w of ['sad','unhappy','depressed','lonely','hurting','pain','crying','terrible','awful','bad day','not doing good','feeling low','heartbroken','stressed','anxious','worried']) {
+        // User expressing sadness or apologizing → Chaka should empathize / soften → sad
+        for (const w of ['sad','unhappy','depressed','lonely','hurting','pain','crying','terrible','awful','bad day','not doing good','feeling low','heartbroken','stressed','anxious','worried','sorry','apologize','my bad']) {
             if (userText.includes(w)) scores.sad += 3;
         }
         // User expressing anger → Chaka should react → angry/defensive depending on persona
@@ -813,6 +813,11 @@ const LiveMode = {
         if (bestEmotion && bestScore >= 2) {
             console.log(`⚡ Thought Emotion: ${bestEmotion} (score: ${bestScore})`);
             this.triggerEmotion(bestEmotion);
+        } else {
+            // Nothing explicitly triggered, and we are not in a hard override -> soften back to neutral
+            // instead of staying stuck forever on whatever the user last said
+            console.log(`⚡ Thought Emotion: None detected (score: ${bestScore}), defaulting to neutral`);
+            this.triggerEmotion('neutral');
         }
     },
 
