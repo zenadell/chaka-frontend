@@ -645,25 +645,43 @@ const LiveMode = {
         if (!thoughtText || thoughtText.length < 2) return;
         
         const lowerText = thoughtText.toLowerCase();
-        const hasNegation = /\b(not|don't|won't|can't|never|isn't|aren't|no)\b/.test(lowerText);
 
-        // Negative / Angry (Rude persona matches)
-        if (/(angry|mad|furious|annoy|stupid|idiot|hate|damn|hell|shut up|ugh|whatever|frustrat|dumb|ridiculous|bitch|crap)/i.test(lowerText)) {
-            this.triggerEmotion('angry');
-        } 
-        // Negative / Sad 
-        else if (/(sad|sorry|apolog|unfortunate|miss|hurt|pain|cry|aww|terrible|bad news|bummer|depress)/i.test(lowerText)) {
-            this.triggerEmotion('sad');
+        // Dictionary of strong emotional triggers
+        const stateEmotions = {
+            angry: /(?:\b)(angry|mad|furious|annoyed|stupid|idiot|hate|frustrated|offended|ridiculous)(?:\b)/g,
+            sad: /(?:\b)(sad|sorry|apolog|unfortunate|hurt|pain|cry|bad news|bummed|depressed|disappoint)(?:\b)/g,
+            surprised: /(?:\b)(wow|amazing|unexpected|shocked|whoa|omg|kidding|serious|no way)(?:\b)/g,
+            happy: /(?:\b)(happy|glad|love|great|awesome|good|nice|haha|lol|yay|excellent|perfect|sweet|smile|excited|fantastic|cheerful)(?:\b)/g,
+            thinking: /(?:\b)(wondering|processing|analyzing|calculating|thinking|considering)(?:\b)/g
+        };
+
+        let lastEmotion = null;
+        let lastMatchIdx = -1;
+
+        // Find the LATEST matched keyword across all mapped emotions in the thought
+        for (const [emotion, regex] of Object.entries(stateEmotions)) {
+            let match;
+            while ((match = regex.exec(lowerText)) !== null) {
+                if (match.index > lastMatchIdx) {
+                    lastMatchIdx = match.index;
+                    lastEmotion = emotion;
+                }
+            }
         }
-        // Positive / Surprised
-        else if (/(wow|amazing|really\?|unexpected|shock|whoa|omg|kidding|serious\?|no way)/i.test(lowerText)) {
-            // "Not amazing" == neutral/sad, "Amazing" == surprised
-            this.triggerEmotion(hasNegation ? 'neutral' : 'surprised');
-        }
-        // Positive / Happy
-        else if (/(happy|glad|love|great|awesome|good|nice|haha|lol|yay|excellent|perfect|sweet|smile|excited|fantastic)/i.test(lowerText)) {
-            // "Not good" == sad/angry, "Good" == happy
-            this.triggerEmotion(hasNegation ? 'sad' : 'happy');
+
+        if (lastEmotion && this.currentEmotion !== lastEmotion) {
+            // Check for immediate preceding negation (e.g. "not happy", "isn't mad") within 15 chars before keyword
+            const prefix = lowerText.substring(Math.max(0, lastMatchIdx - 15), lastMatchIdx);
+            const isNegated = /\b(not|no|don't|isn't|aren't|never)\s+$/.test(prefix);
+            
+            if (isNegated) {
+                // Invert the emotion smoothly if negated
+                if (lastEmotion === 'happy') this.triggerEmotion('sad');
+                else if (lastEmotion === 'angry' || lastEmotion === 'sad') this.triggerEmotion('happy');
+                else this.triggerEmotion('neutral');
+            } else {
+                this.triggerEmotion(lastEmotion);
+            }
         }
     },
 
