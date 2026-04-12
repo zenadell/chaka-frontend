@@ -18,6 +18,7 @@ const LiveMode = {
     isPlaying: false,
     isAiSpeaking: false,
     currentSource: null,
+    thoughtBuffer: "", // Accumulates streaming thought text
 
     // INPUT
     inputCtx: null,
@@ -282,6 +283,7 @@ const LiveMode = {
             if (data.serverContent?.interrupted) {
                 console.log("🛑 AI Interrupted by User");
                 this.stopCurrentAudio();
+                this.thoughtBuffer = "";
                 return;
             }
 
@@ -291,9 +293,10 @@ const LiveMode = {
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
                     }
-                    // Parse thought text for [FEELING:xxx] emotion tags
+                    // Parse full thought text across chunks for [FEELING:xxx]
                     if (part.text && part.thought) {
-                        this.parseEmotionFromThought(part.text);
+                        this.thoughtBuffer += part.text;
+                        this.parseEmotionFromThought(this.thoughtBuffer);
                     }
                     // Display non-thought text in chat
                     if (part.text && !part.thought) {
@@ -302,8 +305,9 @@ const LiveMode = {
                 }
             }
 
-            // Handle turnComplete — flush remaining audio
+            // Handle turnComplete — flush remaining audio and reset buffer
             if (data.serverContent?.turnComplete) {
+                this.thoughtBuffer = ""; // Clear buffer for next turn
                 if (!this.isPlaying && this.audioQueue.length > 0) {
                     this.playNextInQueue();
                 }
@@ -624,26 +628,28 @@ const LiveMode = {
     // Parse [FEELING:xxx] tag from model's thought text
     parseEmotionFromThought(thoughtText) {
         const validEmotions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'thinking'];
-        const match = thoughtText.match(/\[FEELING:(\w+)\]/i);
-        if (match && validEmotions.includes(match[1].toLowerCase())) {
-            const emotion = match[1].toLowerCase();
-            this.triggerEmotion(emotion);
-            console.log(`😊 Chaka feels: ${emotion} (from thought)`);
+        
+        // Find the LAST feeling tag in the buffer, as emotions might shift during a long thought
+        const matches = [...thoughtText.matchAll(/\[FEELING:(\w+)\]/gi)];
+        if (matches.length > 0) {
+            const lastMatch = matches[matches.length - 1];
+            const emotion = lastMatch[1].toLowerCase();
+            if (validEmotions.includes(emotion)) {
+                this.triggerEmotion(emotion);
+            }
             return;
         }
 
-        // Fallback: scan thought text for emotional keywords
-        const lowerText = thoughtText.toLowerCase();
-        if (lowerText.includes('happy') || lowerText.includes('excited') || lowerText.includes('glad') || lowerText.includes('joy')) {
+        // Fallback: scan just the recent additions to the thought text for keywords
+        const lowerText = thoughtText.slice(-50).toLowerCase(); 
+        if (lowerText.includes('happy') || lowerText.includes('excited') || lowerText.includes('glad') || lowerText.includes('joy') || lowerText.includes('laughing')) {
             this.triggerEmotion('happy');
-        } else if (lowerText.includes('angry') || lowerText.includes('annoyed') || lowerText.includes('frustrated') || lowerText.includes('mad')) {
+        } else if (lowerText.includes('angry') || lowerText.includes('annoyed') || lowerText.includes('frustrating') || lowerText.includes('mad')) {
             this.triggerEmotion('angry');
-        } else if (lowerText.includes('sad') || lowerText.includes('sorry') || lowerText.includes('empathetic') || lowerText.includes('sympathetic')) {
+        } else if (lowerText.includes('sad') || lowerText.includes('sorry') || lowerText.includes('sympath') || lowerText.includes('empath')) {
             this.triggerEmotion('sad');
-        } else if (lowerText.includes('surprised') || lowerText.includes('wow') || lowerText.includes('unexpected') || lowerText.includes('interesting')) {
+        } else if (lowerText.includes('surprise') || lowerText.includes('wow') || lowerText.includes('unexpected') || lowerText.includes('interesting')) {
             this.triggerEmotion('surprised');
-        } else if (lowerText.includes('thinking') || lowerText.includes('processing') || lowerText.includes('analyzing') || lowerText.includes('consider')) {
-            this.triggerEmotion('thinking');
         }
     },
 
@@ -702,7 +708,7 @@ const LiveMode = {
             }
         }
 
-        // --- CONTEXTUAL TRACKING ---
+        // --- CONTEXTUAL TRACKING & AUTO-NEUTRAL ---
         let isIdle = (now - this.lastInteractionTime) > 1500;
         let headTilt = 0;
 
@@ -711,6 +717,8 @@ const LiveMode = {
             this.targetY = 0;
             headTilt = 0;
             this.lastInteractionTime = now;
+            // Returning to focus: if stuck on surprised/sad from last turn, soften it
+            if (this.currentEmotion === 'surprised') this.triggerEmotion('neutral');
         } else if (this.currentEmotion === 'thinking') {
             this.targetX = 18;
             this.targetY = -22;
