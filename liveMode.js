@@ -275,11 +275,11 @@ const LiveMode = {
                                 }
                             }
                         },
-                        // Force the model to ALWAYS think before speaking.
-                        // Without this, the model skips thinking on most turns,
-                        // leaving our emotion engine with nothing to analyze.
+                        // Ensure model always produces SOME internal thoughts
+                        // so our emotion engine has text to analyze.
+                        // 128 tokens = ~2 sentences, minimal cost overhead.
                         thinking_config: {
-                            thinking_budget: 1024
+                            thinking_budget: 128
                         }
                     }
                 }
@@ -332,16 +332,10 @@ const LiveMode = {
                 }
             }
 
-            // Handle turnComplete — fire AI classifier + manage decay
+            // Handle turnComplete
             if (data.serverContent?.turnComplete) {
-                // LAYER 1 (Accurate): If we had thought text, send it to AI classifier
-                if (this.turnHadThought && this.thoughtBuffer.length > 5) {
-                    this.classifyEmotionViaAI(this.thoughtBuffer);
-                }
-                // LAYER 3: If NO thought text at all, start decay timer
-                if (!this.turnHadThought) {
-                    this.startEmotionDecay();
-                }
+                // Layer 3: Start decay timer (emotion will fade to neutral after 30s of silence)
+                this.startEmotionDecay();
                 this.thoughtBuffer = "";
                 this.turnHadThought = false;
                 if (!this.isPlaying && this.audioQueue.length > 0) {
@@ -663,40 +657,10 @@ const LiveMode = {
     },
 
     // ========================
-    // 4-LAYER EMOTION ENGINE
+    // EMOTION ENGINE (Local Keyword Scoring + Auto-Decay)
     // ========================
 
-    // LAYER 1: AI-Powered Classification (most accurate, async)
-    async classifyEmotionViaAI(thoughtText) {
-        try {
-            const apiBase = window.BACKEND_URL || "";
-            const headers = (typeof getAuthHeaders === 'function') ? await getAuthHeaders() : {};
-            headers['Content-Type'] = 'application/json';
-
-            const resp = await fetch(`${apiBase}/api/tools/classify-emotion`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ text: thoughtText.substring(0, 500) })
-            });
-
-            if (resp.ok) {
-                const data = await resp.json();
-                if (data.emotion && this.emotions[data.emotion]) {
-                    console.log(`🧠 AI Emotion: ${data.emotion}`);
-                    this.triggerEmotion(data.emotion);
-                    // Cancel any pending decay since we got a real classification
-                    if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
-                    // Start fresh decay from this point
-                    this.startEmotionDecay();
-                }
-            }
-        } catch (e) {
-            console.warn('Emotion classify failed:', e.message);
-            // Local fallback already ran, so this is fine
-        }
-    },
-
-    // LAYER 2: Instant Local Keyword Analysis (runs immediately while AI classifies)
+    // LOCAL KEYWORD SCORER: Runs instantly when thought text arrives
     localEmotionFallback(thoughtText) {
         if (!thoughtText || thoughtText.length < 2) return;
         const t = thoughtText.toLowerCase();
@@ -750,7 +714,7 @@ const LiveMode = {
         }
     },
 
-    // LAYER 3: Auto-Decay Timer (returns to neutral when no new emotion data arrives)
+    // AUTO-DECAY: Returns to neutral after 30 seconds of no new emotion data
     startEmotionDecay() {
         if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
         this.emotionDecayTimer = setTimeout(() => {
@@ -758,7 +722,7 @@ const LiveMode = {
                 console.log(`🕐 Emotion decay: ${this.currentEmotion} → neutral`);
                 this.triggerEmotion('neutral');
             }
-        }, 10000); // Decay to neutral after 10 seconds of no new emotion data
+        }, 30000); // 30 seconds — long enough to survive between turns
     },
 
     triggerEmotion(emo) {
