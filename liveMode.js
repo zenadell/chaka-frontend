@@ -271,7 +271,7 @@ const LiveMode = {
             if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText);
             let data = JSON.parse(messageText);
 
-            // Tool calls (emotion, search, scrape)
+            // Tool calls (search, scrape — no more express_emotion)
             const toolCall = data.toolCall || data.tool_call;
             if (toolCall && toolCall.functionCalls) {
                 toolCall.functionCalls.forEach(call => this.handleFunctionCall(call));
@@ -291,7 +291,12 @@ const LiveMode = {
                     if (part.inlineData?.data) {
                         this.addToQueue(part.inlineData.data);
                     }
-                    if (part.text) {
+                    // Parse thought text for [FEELING:xxx] emotion tags
+                    if (part.text && part.thought) {
+                        this.parseEmotionFromThought(part.text);
+                    }
+                    // Display non-thought text in chat
+                    if (part.text && !part.thought) {
                         this.addChat(part.text, "ai");
                     }
                 }
@@ -326,17 +331,7 @@ const LiveMode = {
         const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
 
         try {
-            if (call.name === "express_emotion") {
-                // AUTONOMOUS EMOTION EXPRESSION
-                const emotion = call.args?.emotion || 'neutral';
-                const validEmotions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'thinking'];
-                if (validEmotions.includes(emotion)) {
-                    this.triggerEmotion(emotion);
-                    console.log(`😊 Chaka feels: ${emotion}`);
-                }
-                resultText = `Emotion "${emotion}" displayed.`;
-
-            } else if (call.name === "search_web") {
+            if (call.name === "search_web") {
                 const query = call.args.query || call.args.query_text;
                 this.updateStatus("RESEARCHING...", "#ff4500");
                 this.triggerEmotion('thinking');
@@ -626,6 +621,32 @@ const LiveMode = {
     // ========================
     // EMOTION ENGINE (NEW — driven by express_emotion tool)
     // ========================
+    // Parse [FEELING:xxx] tag from model's thought text
+    parseEmotionFromThought(thoughtText) {
+        const validEmotions = ['neutral', 'happy', 'angry', 'sad', 'surprised', 'thinking'];
+        const match = thoughtText.match(/\[FEELING:(\w+)\]/i);
+        if (match && validEmotions.includes(match[1].toLowerCase())) {
+            const emotion = match[1].toLowerCase();
+            this.triggerEmotion(emotion);
+            console.log(`😊 Chaka feels: ${emotion} (from thought)`);
+            return;
+        }
+
+        // Fallback: scan thought text for emotional keywords
+        const lowerText = thoughtText.toLowerCase();
+        if (lowerText.includes('happy') || lowerText.includes('excited') || lowerText.includes('glad') || lowerText.includes('joy')) {
+            this.triggerEmotion('happy');
+        } else if (lowerText.includes('angry') || lowerText.includes('annoyed') || lowerText.includes('frustrated') || lowerText.includes('mad')) {
+            this.triggerEmotion('angry');
+        } else if (lowerText.includes('sad') || lowerText.includes('sorry') || lowerText.includes('empathetic') || lowerText.includes('sympathetic')) {
+            this.triggerEmotion('sad');
+        } else if (lowerText.includes('surprised') || lowerText.includes('wow') || lowerText.includes('unexpected') || lowerText.includes('interesting')) {
+            this.triggerEmotion('surprised');
+        } else if (lowerText.includes('thinking') || lowerText.includes('processing') || lowerText.includes('analyzing') || lowerText.includes('consider')) {
+            this.triggerEmotion('thinking');
+        }
+    },
+
     triggerEmotion(emo) {
         if (!this.emotions[emo]) return;
         this.currentEmotion = emo;
