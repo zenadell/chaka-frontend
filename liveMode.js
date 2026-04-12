@@ -785,19 +785,19 @@ const LiveMode = {
         // Priority 2: Weighted keyword scoring
         const scores = { happy: 0, sad: 0, angry: 0, surprised: 0, thinking: 0 };
 
-        for (const w of ['happy','glad','love','great','awesome','excited','fantastic','cheerful','optimistic','relaxed','smile','haha','lol','yay','wonderful','positive','enjoy','fun','laugh','warm','friendly','upbeat','delighted','thrilled','pleased','enthusiastic','content']) {
+        for (const w of ['happy','glad','love','great','awesome','excited','fantastic','cheerful','optimis','relax','smile','haha','lol','yay','wonderful','positive','enjoy','fun','laugh','warm','friend','upbeat','delight','thrill','pleas','enthusias','content']) {
             if (t.includes(w)) scores.happy += 2;
         }
-        for (const w of ['sad','sorry','saddened','apolog','unfortunate','hurt','pain','cry','bummed','depressed','disappoint','miss','lonely','heartbreak','terrible','awful','regret','mourn','grief','miserable','upset','gloomy','somber','empathy','empathetic','sympathy','condolence','concern']) {
+        for (const w of ['sad','sorry','sadden','apolog','unfortunate','hurt','pain','cry','bummed','depress','disappoint','miss','lone','heartbreak','terrible','awful','regret','mourn','grief','miserab','upset','gloomy','somber','empath','sympath','condolence','concern']) {
             if (t.includes(w)) scores.sad += 2;
         }
-        for (const w of ['angry','mad','furious','annoyed','frustrated','offended','ridiculous','irritat','outrage','hostile','aggravat','bitter','resentful','livid','infuriat','agitat','displeas','rude','sarcastic','dismissive']) {
+        for (const w of ['angry','mad','furious','annoy','frustrat','offend','ridiculous','irritat','outrage','hostile','aggravat','bitter','resentful','livid','infuriat','agitat','displeas','rude','sarcastic','dismissive']) {
             if (t.includes(w)) scores.angry += 2;
         }
-        for (const w of ['wow','amazing','unexpected','shocked','whoa','omg','kidding','no way','unbeliev','astonish','startl','incredible','mind blown','surprising']) {
+        for (const w of ['wow','amazing','unexpected','shock','whoa','omg','kidding','no way','unbeliev','astonish','startl','incredible','mind blown','surpris']) {
             if (t.includes(w)) scores.surprised += 2;
         }
-        for (const w of ['mulling','ponder','analyz','assess','evaluat','weigh','deliberat','contemplat','reflect','consider','wonder','figur','processing']) {
+        for (const w of ['mulling','ponder','analyz','assess','evaluat','weigh','deliberat','contemplat','reflect','consider','wonder','figur','process']) {
             if (t.includes(w)) scores.thinking += 2;
         }
 
