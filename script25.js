@@ -3317,7 +3317,7 @@ async function executeApiRequestLoop() {
             let systemResultText = "";
             try {
                 const headers = await getAuthHeaders();
-                const ytRes = await fetch(`${APP_CONFIG.BACKEND_URL}/api/tools/youtube`, {
+                const ytRes = await fetch(`${APP_CONFIG.BACKEND_URL}/api/tools/video-agent`, {
                     method: 'POST', headers: headers, body: JSON.stringify({ url: payload }), signal: fetchController?.signal
                 });
                 const data = await ytRes.json();
