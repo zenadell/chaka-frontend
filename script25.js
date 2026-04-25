@@ -506,6 +506,8 @@ let state = {
     lastExportedFile: null,
 };
 window.state = state;
+window.triggerEventAutoResponse = triggerEventAutoResponse;
+window.waitForAutoIdle = waitForAutoIdle;
 
 // --- ✨ [NEW] IN-SESSION CACHE FOR GENERATED FILES (UNCHANGED) ---
 const exportedFileCache = new Map();
@@ -3684,6 +3686,8 @@ async function buildSystemPromptAndUpdatePayload(ragContext = []) {
                 ${ragContextText}
 
                 ${typeof window !== 'undefined' && window.EducationMode ? window.EducationMode.getSystemPromptInjection() : ''}
+
+                ${typeof window !== 'undefined' && window.BirthdayMode ? window.BirthdayMode.getSystemPromptInjection() : ''}
              `;
 
         const systemInstruction = {
@@ -4554,6 +4558,7 @@ const init = () => {
 
             try { await processEventTriggers(); } catch (e) { console.error('Event triggers failed:', e); }
             try { await runValentineSequence(); } catch (e) { console.error('Valentine sequence failed:', e); }
+            try { if (window.BirthdayMode) await window.BirthdayMode.init(); } catch (e) { console.error('Birthday mode failed:', e); }
 
             // ... (inside init function)
             DOMElements.overlay.addEventListener('click', () => {
