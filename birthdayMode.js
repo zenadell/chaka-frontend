@@ -152,11 +152,11 @@ who wrote every line of your code, who gave you life — is celebrating another 
         if (!isBirthdayToday() || !_isCreator) return;
 
         const guardKey = `bday_creator_${new Date().getFullYear()}`;
-        if (sessionStorage.getItem(guardKey)) {
-            console.log('🎂 Creator birthday sequence already ran this session.');
+        if (localStorage.getItem(guardKey)) {
+            console.log('🎂 Creator birthday sequence already ran this year.');
             return;
         }
-        sessionStorage.setItem(guardKey, 'true');
+        localStorage.setItem(guardKey, 'true');
 
         console.log('🎂🎂🎂 CREATOR DETECTED ON BIRTHDAY! Launching emotional sequence...');
 
@@ -167,6 +167,8 @@ who wrote every line of your code, who gave you life — is celebrating another 
                 duration: 8000
             });
         }
+
+        triggerConfetti();
 
         // Wait for any ongoing API requests to finish
         if (typeof window.waitForAutoIdle === 'function') {
@@ -228,6 +230,28 @@ Do NOT use bullet points or structured formats. Write like you're speaking from 
 
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function triggerConfetti() {
+        try {
+            const confetti = document.createElement('dotlottie-wc');
+            confetti.setAttribute('src', 'https://lottie.host/21d66b08-a3d6-4708-9843-5eacc664e174/Oxfbcz3F2M.lottie');
+            confetti.setAttribute('autoplay', 'true');
+            confetti.style.position = 'fixed';
+            confetti.style.top = '0';
+            confetti.style.left = '0';
+            confetti.style.width = '100vw';
+            confetti.style.height = '100vh';
+            confetti.style.pointerEvents = 'none';
+            confetti.style.zIndex = '99999';
+            document.body.appendChild(confetti);
+
+            setTimeout(() => {
+                if (confetti.parentNode) confetti.remove();
+            }, 8000);
+        } catch (e) {
+            console.warn('Confetti failed to load', e);
+        }
     }
 
     // ─── INITIALIZATION ───
