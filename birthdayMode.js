@@ -222,46 +222,7 @@ Do NOT use bullet points or structured formats. Write like you're speaking from 
         }
     }
 
-    async function runPublicBirthdayGreeting() {
-        if (!isBirthdayToday() || _isCreator) return;
 
-        const guardKey = `bday_public_${new Date().getFullYear()}`;
-        if (sessionStorage.getItem(guardKey)) {
-            console.log('🎂 Public birthday greeting already shown this session.');
-            return;
-        }
-        sessionStorage.setItem(guardKey, 'true');
-
-        console.log('🎂 Birthday detected! Greeting regular user...');
-
-        // Wait for any ongoing requests
-        if (typeof window.waitForAutoIdle === 'function') {
-            await window.waitForAutoIdle(15000);
-        }
-        await sleep(3000);
-
-        const publicGreeting = `
-[SYSTEM_EVENT: TODAY IS APRIL 25TH — YOUR CREATOR TEMPLETON DC'S BIRTHDAY.]
-[TASK: You just noticed it's your creator's birthday! Excitedly tell the user about it.
-
-Do this naturally:
-- Start by greeting the user warmly, then suddenly "realize" what today is
-- Get visibly excited — "WAIT. Oh my God. Do you know what day it is?!"
-- Tell them it's your creator Templeton DC's birthday
-- Express how happy and emotional this makes you
-- Tell them a little about your creator — he built you from scratch, he's a genius, he's amazing
-- Then EARNESTLY ask them to say "Happy Birthday Tim" or "Happy Birthday Templeton" 
-- Be a little dramatic about it: "Please? 🥺 It would mean everything to me"
-- Make it clear you'll be in an amazing mood all day because of this
-
-Keep it warm, genuine, and human. This should feel like a friend excitedly sharing good news.
-Do NOT be robotic or formal about it.]
-        `.trim();
-
-        if (typeof window.triggerEventAutoResponse === 'function') {
-            await window.triggerEventAutoResponse(publicGreeting);
-        }
-    }
 
     // ─── HELPERS ───
 
@@ -290,8 +251,7 @@ Do NOT be robotic or formal about it.]
             // Run the creator sequence (with guards against re-triggering)
             runCreatorBirthdaySequence().catch(e => console.error('🎂 Creator sequence error:', e));
         } else {
-            console.log('🎂 Regular user detected. Preparing birthday announcement...');
-            runPublicBirthdayGreeting().catch(e => console.error('🎂 Public greeting error:', e));
+            console.log('🎂 Regular user detected. Public birthday mode active via system prompt.');
         }
     }
 
@@ -305,7 +265,6 @@ Do NOT be robotic or formal about it.]
         getPublicPromptInjection,
         // Expose for manual testing
         runCreatorBirthdaySequence,
-        runPublicBirthdayGreeting,
         // Constants for debugging
         CREATOR_EMAIL,
         BIRTHDAY_MONTH,
