@@ -36,6 +36,9 @@ const LiveMode = {
     // Config from backend
     config: null,
     
+    // Disconnect flag for end_conversation tool
+    pendingDisconnect: false,
+    
     // Short-term memory for reconnects
     sessionHistory: [],
 
@@ -420,12 +423,27 @@ const LiveMode = {
                 resultText = data.result || "Could not extract content.";
                 this.addChat(`✅ Deep Scrape complete.`, "system");
             }
+            } else if (call.name === "end_conversation") {
+                const reason = call.args.reason || "Conversation ended";
+                this.updateStatus("CLOSING STREAM...", "#ff4500");
+                this.addChat(`[System: Stream ending - ${reason}]`, "system");
+                
+                // Stop the mic right now so user doesn't interrupt the goodbye
+                this.stopMic();
+                
+                // Flag to disconnect once the audio queue is empty
+                this.pendingDisconnect = true;
+                
+                resultText = "Stream flagged for closure.";
+            }
         } catch (e) {
             console.error("Tool execution error:", e);
             resultText = `Error during ${call.name}: ${e.message}`;
         }
 
-        this.updateStatus("ONLINE", "#ffffff");
+        if (!this.pendingDisconnect) {
+            this.updateStatus("ONLINE", "#ffffff");
+        }
 
         const toolResponseMsg = {
             toolResponse: {
@@ -513,6 +531,12 @@ const LiveMode = {
             this.isPlaying = false;
             this.isAiSpeaking = false;
             this.currentSource = null;
+            
+            if (this.pendingDisconnect) {
+                console.log("🛑 Audio queue finished. Executing pending disconnect...");
+                this.pendingDisconnect = false;
+                this.disconnect();
+            }
             return;
         }
 
