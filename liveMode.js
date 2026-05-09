@@ -35,6 +35,9 @@ const LiveMode = {
 
     // Config from backend
     config: null,
+    
+    // Short-term memory for reconnects
+    sessionHistory: [],
 
     // DOM cache
     elements: {},
@@ -248,10 +251,23 @@ const LiveMode = {
 
         this.socket.onopen = () => {
             const voiceId = this.elements.voiceSelect?.value || this.config.voiceId || "Puck";
+            
+            // Inject short-term memory if reconnecting
+            let finalInstruction = this.config.systemInstruction;
+            if (this.sessionHistory.length > 0) {
+                finalInstruction += "\n\n--- PREVIOUS CONTEXT BEFORE CONNECTION DROP ---\n";
+                // Only take the last 20 turns to avoid blowing up the context window on long sessions
+                const recentHistory = this.sessionHistory.slice(-20);
+                recentHistory.forEach(msg => {
+                    finalInstruction += `${msg.sender === 'ai' ? 'Chaka' : 'User'}: ${msg.text}\n`;
+                });
+                finalInstruction += "--- RESUME CONVERSATION ---\n";
+            }
+
             const setupMsg = {
                 setup: {
                     model: this.config.model,
-                    system_instruction: { parts: [{ text: this.config.systemInstruction }] },
+                    system_instruction: { parts: [{ text: finalInstruction }] },
                     tools: this.config.tools || [],
                     // Disable all safety filters to unblock aggressive/rude personas
                     // Providing both standard formats used by the Multimodal Live API
@@ -600,6 +616,9 @@ const LiveMode = {
         div.className = `live-msg ${sender}`;
         div.innerText = text;
         this.elements.chatLog.appendChild(div);
+
+        // Store in short-term memory for reconnects
+        this.sessionHistory.push({ sender, text });
 
         // Keep only last 3 messages
         if (this.elements.chatLog.children.length > 3) {
