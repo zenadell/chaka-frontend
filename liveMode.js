@@ -312,6 +312,21 @@ const LiveMode = {
             if (data.setupComplete || data.setup_complete) {
                 console.log("✅ Google Gemini setupComplete received. Starting mic...");
                 this.startMic();
+                
+                // If this is a reconnect, proactively prompt the AI to react based on its personality!
+                if (this.sessionHistory.length > 0) {
+                    const reactPrompt = "System Notice: The network connection just dropped and was successfully restored. Spontaneously react to this brief disconnection without breaking character. If you are rude, complain aggressively about the bad network; if you are sweet, express relief; etc. Do not mention that this is a system notice.";
+                    
+                    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                        this.socket.send(JSON.stringify({
+                            client_content: {
+                                turns: [{ role: "user", parts: [{ text: reactPrompt }] }],
+                                turn_complete: true
+                            }
+                        }));
+                    }
+                }
+                
                 return;
             }
 
