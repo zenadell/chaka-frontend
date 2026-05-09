@@ -187,8 +187,8 @@ const LiveMode = {
             const apiBase = window.BACKEND_URL || "";
             const voiceId = this.elements.voiceSelect?.value || globalVoice;
 
-            const url = `${apiBase}/api/tools/live/config?persona=${encodeURIComponent(persona)}&userId=${encodeURIComponent(userId)}&sessionId=${encodeURIComponent(sessionId)}&voiceId=${encodeURIComponent(voiceId)}`;
-            const resp = await fetch(url, { headers });
+            const url = `${apiBase}/api/tools/live/config?persona=${encodeURIComponent(persona)}&userId=${encodeURIComponent(userId)}&sessionId=${encodeURIComponent(sessionId)}&voiceId=${encodeURIComponent(voiceId)}&t=${Date.now()}`;
+            const resp = await fetch(url, { headers, cache: 'no-store' });
             if (!resp.ok) throw new Error("Failed to fetch Live Mode configuration");
 
             this.config = await resp.json();
@@ -283,14 +283,21 @@ const LiveMode = {
             this.isConnected = true;
             this.updateStatus("ONLINE", "#ffffff");
             this.triggerEmotion('neutral');
-            // Auto-start mic on connect (same as original)
-            this.startMic();
+            // We must wait for 'setupComplete' from Google before starting the mic,
+            // otherwise premature audio chunks will put the API in a bad state.
         };
 
         this.socket.onmessage = async (event) => {
             let messageText = event.data instanceof Blob ? await event.data.text() : event.data;
             if (messageText.length < 500) console.log("📥 Raw Live Message:", messageText);
             let data = JSON.parse(messageText);
+
+            // Handle successful setup
+            if (data.setupComplete || data.setup_complete) {
+                console.log("✅ Google Gemini setupComplete received. Starting mic...");
+                this.startMic();
+                return;
+            }
 
             // Tool calls (search, scrape — no more express_emotion)
             const toolCall = data.toolCall || data.tool_call;

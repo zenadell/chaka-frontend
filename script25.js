@@ -829,7 +829,8 @@ function showAnnouncementPopup(announcement) {
     DOMElements.overlay.classList.add('show');
 }
 function handleAnnouncementData(announcement) {
-    if (!announcement || !announcement.isActive || !announcement.id) {
+    const isActive = announcement.active === 1 || announcement.active === true || announcement.isActive;
+    if (!announcement || !isActive || !announcement.id) {
         return;
     }
     const shownThisSession = sessionStorage.getItem('announcementShownThisSession') === announcement.id;
