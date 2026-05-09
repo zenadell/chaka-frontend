@@ -39,6 +39,9 @@ const LiveMode = {
     // Disconnect flag for end_conversation tool
     pendingDisconnect: false,
     
+    // Time tracking for echo cancellation debounce
+    lastAiSpeakTime: 0,
+    
     // Short-term memory for reconnects
     sessionHistory: [],
 
@@ -422,7 +425,6 @@ const LiveMode = {
                 const data = await resp.json();
                 resultText = data.result || "Could not extract content.";
                 this.addChat(`✅ Deep Scrape complete.`, "system");
-            }
             } else if (call.name === "end_conversation") {
                 const reason = call.args.reason || "Conversation ended";
                 this.updateStatus("CLOSING STREAM...", "#ff4500");
@@ -524,12 +526,14 @@ const LiveMode = {
         this.audioQueue = [];
         this.isPlaying = false;
         this.isAiSpeaking = false;
+        this.lastAiSpeakTime = Date.now();
     },
 
     playNextInQueue() {
         if (this.audioQueue.length === 0) {
             this.isPlaying = false;
             this.isAiSpeaking = false;
+            this.lastAiSpeakTime = Date.now();
             this.currentSource = null;
             
             if (this.pendingDisconnect) {
@@ -597,7 +601,9 @@ const LiveMode = {
             this.processor.connect(this.inputCtx.destination);
 
             this.processor.onaudioprocess = (e) => {
-                if (this.isAiSpeaking || !this.isConnected || !this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+                // Echo Debounce: Mute the mic while AI speaks and for 1000ms after it stops to prevent room reverberation loop
+                const isEchoMuted = this.isAiSpeaking || (Date.now() - this.lastAiSpeakTime < 1000);
+                if (isEchoMuted || !this.isConnected || !this.socket || this.socket.readyState !== WebSocket.OPEN) return;
 
                 const inputData = e.inputBuffer.getChannelData(0);
                 const pcmData = new Int16Array(inputData.length);
@@ -761,9 +767,10 @@ const LiveMode = {
             if (lastResult.isFinal) {
                 const transcript = lastResult[0].transcript.toLowerCase().trim();
                 
-                // CRITICAL FIX: Only predict emotion if AI is NOT currently speaking
+                // CRITICAL FIX: Only predict emotion if AI is NOT currently speaking AND echo debounce has passed.
                 // Otherwise the mic picks up her own voice from the speakers!
-                if (!this.isAiSpeaking) {
+                const isEchoMuted = this.isAiSpeaking || (Date.now() - this.lastAiSpeakTime < 1000);
+                if (!isEchoMuted) {
                     console.log(`🎙️ User said: "${transcript}"`);
                     this.predictEmotionFromUserSpeech(transcript);
                 }
