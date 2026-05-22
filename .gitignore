@@ -1,2 +1,19 @@
+# Dependencies
 node_modules/
+
+# OS
 .DS_Store
+
+# IDE / editor
+.claude/
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Backup / editor swap files
+*.bak
+*.swp
+*.swo
+*~

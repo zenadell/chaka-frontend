@@ -33,6 +33,15 @@ const LiveMode = {
     inputAnalyser: null,
     inputDataArray: null,
 
+    // VISION STATE (Phase 3C — continuous live vision via Gemini Live API)
+    visionState: { webcam: false, screen: false },
+    visionStreams: { webcam: null, screen: null },
+    visionVideos: { webcam: null, screen: null },
+    visionTimers: { webcam: null, screen: null },
+    visionFps: 1, // 1 frame per second per source — balanced for token cost vs awareness
+    visionFrameQuality: 0.6,
+    visionMaxWidth: 800,
+
     // Config from backend
     config: null,
     
@@ -425,17 +434,56 @@ const LiveMode = {
                 const data = await resp.json();
                 resultText = data.result || "Could not extract content.";
                 this.addChat(`✅ Deep Scrape complete.`, "system");
+            } else if (call.name === "set_vision") {
+                const wantsWebcam = !!call.args.webcam;
+                const wantsScreen = !!call.args.screen;
+                const reason = call.args.reason || "vision toggle";
+                console.log(`👁️  set_vision tool called → webcam=${wantsWebcam} screen=${wantsScreen} reason="${reason}"`);
+
+                try {
+                    // Toggle each source independently. If state matches request, no-op.
+                    if (wantsWebcam && !this.visionState.webcam) {
+                        await this.startVisionSource('webcam');
+                        this.addChat(`📷 Webcam vision activated`, 'system');
+                    } else if (!wantsWebcam && this.visionState.webcam) {
+                        this.stopVisionSource('webcam');
+                        this.addChat(`📷 Webcam vision deactivated`, 'system');
+                    }
+
+                    if (wantsScreen && !this.visionState.screen) {
+                        await this.startVisionSource('screen');
+                        this.addChat(`🖥️ Screen vision activated`, 'system');
+                    } else if (!wantsScreen && this.visionState.screen) {
+                        this.stopVisionSource('screen');
+                        this.addChat(`🖥️ Screen vision deactivated`, 'system');
+                    }
+
+                    resultText = `Vision state set: webcam=${this.visionState.webcam}, screen=${this.visionState.screen}.`;
+                } catch (err) {
+                    console.error('❌ set_vision failed:', err);
+                    // Roll back any partial state on failure
+                    if (err.name === 'NotAllowedError') {
+                        resultText = `Vision permission denied by user. ${err.message}`;
+                    } else {
+                        resultText = `Failed to start vision: ${err.message}`;
+                    }
+                }
+
             } else if (call.name === "end_conversation") {
                 const reason = call.args.reason || "Conversation ended";
                 this.updateStatus("CLOSING STREAM...", "#ff4500");
                 this.addChat(`[System: Stream ending - ${reason}]`, "system");
-                
+
+                // Stop any vision streams too
+                if (this.visionState.webcam) this.stopVisionSource('webcam');
+                if (this.visionState.screen) this.stopVisionSource('screen');
+
                 // Stop the mic right now so user doesn't interrupt the goodbye
                 this.stopMic();
-                
+
                 // Flag to disconnect once the audio queue is empty
                 this.pendingDisconnect = true;
-                
+
                 resultText = "Stream flagged for closure.";
             }
         } catch (e) {
@@ -485,6 +533,127 @@ const LiveMode = {
         this.thoughtBuffer = "";
         this.turnHadThought = false;
         if (this.emotionDecayTimer) clearTimeout(this.emotionDecayTimer);
+
+        // Clean up any active vision streams on disconnect
+        if (this.visionState.webcam) this.stopVisionSource('webcam');
+        if (this.visionState.screen) this.stopVisionSource('screen');
+    },
+
+    // ========================
+    // VISION PIPELINE (Phase 3C — continuous Live API video input)
+    // ========================
+    async startVisionSource(source) {
+        if (source !== 'webcam' && source !== 'screen') {
+            throw new Error(`Unknown vision source: ${source}`);
+        }
+        if (this.visionState[source]) return; // already on
+
+        // Request the appropriate media stream
+        let stream;
+        if (source === 'webcam') {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
+                audio: false,
+            });
+        } else {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+                video: { cursor: 'always', frameRate: { ideal: 15 } },
+                audio: false,
+            });
+            // If user clicks "Stop sharing" in the browser bar, clean up gracefully
+            stream.getVideoTracks()[0].addEventListener('ended', () => {
+                if (this.visionState.screen) {
+                    this.stopVisionSource('screen');
+                    this.addChat('🖥️ Screen sharing ended by user', 'system');
+                }
+            });
+        }
+
+        // Set up an offscreen video element to render the stream so we can grab frames
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+        await video.play();
+
+        this.visionStreams[source] = stream;
+        this.visionVideos[source] = video;
+        this.visionState[source] = true;
+
+        // Wait until the first real frame is available (videoWidth becomes > 0)
+        const waitForFrame = () => new Promise((resolve) => {
+            if (video.videoWidth > 0) return resolve();
+            const t = setInterval(() => { if (video.videoWidth > 0) { clearInterval(t); resolve(); } }, 30);
+            setTimeout(() => { clearInterval(t); resolve(); }, 2000);
+        });
+        await waitForFrame();
+
+        // Start the per-second capture loop
+        const intervalMs = Math.round(1000 / this.visionFps);
+        this.visionTimers[source] = setInterval(() => {
+            this._captureAndSendFrame(source);
+        }, intervalMs);
+
+        // Send the first frame immediately so Chaka can react fast
+        this._captureAndSendFrame(source);
+
+        console.log(`👁️  Vision source "${source}" started @ ${this.visionFps}fps`);
+    },
+
+    stopVisionSource(source) {
+        if (!this.visionState[source]) return;
+
+        if (this.visionTimers[source]) {
+            clearInterval(this.visionTimers[source]);
+            this.visionTimers[source] = null;
+        }
+        if (this.visionStreams[source]) {
+            this.visionStreams[source].getTracks().forEach(t => t.stop());
+            this.visionStreams[source] = null;
+        }
+        if (this.visionVideos[source]) {
+            this.visionVideos[source].srcObject = null;
+            this.visionVideos[source] = null;
+        }
+        this.visionState[source] = false;
+        console.log(`👁️  Vision source "${source}" stopped`);
+    },
+
+    _captureAndSendFrame(source) {
+        const video = this.visionVideos[source];
+        if (!video || !this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+        if (!video.videoWidth || !video.videoHeight) return;
+
+        // Downscale to keep token usage sane while preserving readability
+        const maxW = this.visionMaxWidth;
+        const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
+        const w = Math.round(video.videoWidth * scale);
+        const h = Math.round(video.videoHeight * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, w, h);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', this.visionFrameQuality);
+        const base64 = dataUrl.split(',')[1];
+        if (!base64) return;
+
+        // Gemini Live API realtimeInput frame format
+        const msg = {
+            realtimeInput: {
+                mediaChunks: [
+                    { mimeType: 'image/jpeg', data: base64 }
+                ]
+            }
+        };
+
+        try {
+            this.socket.send(JSON.stringify(msg));
+        } catch (e) {
+            console.warn(`⚠️ Failed to send ${source} frame:`, e.message);
+        }
     },
 
     // Original updateStatus signature preserved (text, color)

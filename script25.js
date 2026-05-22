@@ -1791,6 +1791,11 @@ async function subscribeAndDisplayPersonalities() {
             if (personality.isDefault) {
                 newDefaultPersonalityId = id;
             }
+            // Track first persona with a non-empty systemPrompt as ultimate fallback
+            if (!newDefaultPersonalityId && !window.__chakaFallbackPersonaId &&
+                (personality.systemPrompt || personality.persona || '').trim().length > 100) {
+                window.__chakaFallbackPersonaId = id;
+            }
             const item = document.createElement('div');
             item.className = 'personality-item';
             item.dataset.id = id;
@@ -1858,6 +1863,16 @@ async function subscribeAndDisplayPersonalities() {
 
             DOMElements.personalityList.appendChild(item);
         });
+
+        // ── Safety net ────────────────────────────────────────────────
+        // If admin hasn't marked any persona as default, fall back to the
+        // first persona with a real systemPrompt so Chaka never runs
+        // "naked" (no persona = generic Gemini behavior).
+        if (!newDefaultPersonalityId && window.__chakaFallbackPersonaId) {
+            console.warn('[chaka] No default personality set in admin — falling back to first available with systemPrompt.');
+            newDefaultPersonalityId = window.__chakaFallbackPersonaId;
+        }
+        // ──────────────────────────────────────────────────────────────
 
         state.defaultPersonalityId = newDefaultPersonalityId;
         if (currentSelectedId === oldDefaultId || currentSelectedId === null) {
@@ -3570,12 +3585,12 @@ async function buildSystemPromptAndUpdatePayload(ragContext = []) {
                     final_answer: { type: "string", description: "The complete, natural language response to the user's query." },
                     action_required: {
                         type: "string",
-                        enum: ["calculate", "search", "analyze_youtube", "generate_image", "edit_image", "send_email", "update_memory", "export_as_pdf", "export_as_txt", "none"],
-                        description: "Which tool is needed."
+                        enum: ["calculate", "search", "analyze_youtube", "generate_image", "edit_image", "send_email", "update_memory", "export_as_pdf", "export_as_txt", "browse_url", "agent_task", "look_screen", "look_webcam", "ocr_screen", "none"],
+                        description: "Which tool is needed. Use 'browse_url' to navigate to a single URL. Use 'agent_task' for MULTI-STEP autonomous tasks (register account, book flight, fill long forms, click through workflows, solve captchas, send messages). Use 'look_screen'/'look_webcam'/'ocr_screen' for vision."
                     },
                     action_payload: {
                         type: "string",
-                        description: "The raw payload for the action."
+                        description: "The raw payload for the action. For browse_url, this is the URL (domain-only is fine, e.g. 'jomiez.com/resume'). For vision actions, leave empty."
                     },
                     analysis_summary: {
                         type: "string",
