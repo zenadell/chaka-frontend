@@ -28,8 +28,11 @@
   // Deep-scrape marker — Phase 5 (extracts full article body from any URL)
   //   [[SCRAPE:https://example.com/some-article]]
   const SCRAPE_RE = /(?:\[\[|<<)SCRAPE:(https?:\/\/[^\]>]+?)(?:\]\]|>>)/i;
+  // Deep-research marker — Phase 6 (Grok-style multi-source dig)
+  //   [[RESEARCH:find me everything about Ezinna Emmanuel Nweke Temple]]
+  const RESEARCH_RE = /(?:\[\[|<<)RESEARCH:([\s\S]+?)(?:\]\]|>>)/i;
   // Combined strip pattern — removes ALL marker families from bubble text
-  const STRIP_RE = /(?:\[\[|<<)(?:EYES:(?:webcam|screen|ocr)|HANDS:(?:browse|screenshot):[^\]>]+?|HANDS:agent:[\s\S]+?|SCRAPE:https?:\/\/[^\]>]+?)(?:\]\]|>>)/gi;
+  const STRIP_RE = /(?:\[\[|<<)(?:EYES:(?:webcam|screen|ocr)|HANDS:(?:browse|screenshot):[^\]>]+?|HANDS:agent:[\s\S]+?|SCRAPE:https?:\/\/[^\]>]+?|RESEARCH:[\s\S]+?)(?:\]\]|>>)/gi;
 
   // Reentrancy guard
   let visionInFlight = false;
@@ -465,6 +468,86 @@
       </div>`;
     container.appendChild(group);
     container.scrollTop = container.scrollHeight;
+  }
+
+  // ─── DEEP RESEARCH — Phase 6: multi-source dig with synthesis ────────────
+  async function triggerDeepResearch(query) {
+    if (visionInFlight) {
+      console.warn('[agentic-research] already in flight, skipping');
+      return;
+    }
+    visionInFlight = true;
+
+    const card = window.chakaResearchCard?.create({ query });
+
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`${getBackend()}/api/research`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text().catch(() => 'unknown');
+        throw new Error(`Research endpoint failed: ${res.status} ${err.slice(0, 200)}`);
+      }
+
+      // Parse SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResult = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+        for (const ev of events) {
+          if (!ev.trim()) continue;
+          const eventMatch = ev.match(/^event:\s*(\w+)/m);
+          const dataMatch  = ev.match(/^data:\s*(.+)$/m);
+          if (!dataMatch) continue;
+          let payload;
+          try { payload = JSON.parse(dataMatch[1]); } catch { continue; }
+          const type = eventMatch ? eventMatch[1] : 'message';
+
+          if (type === 'done') {
+            finalResult = payload;
+            card?.complete(payload);
+          } else if (type === 'error') {
+            card?.fail(payload.error || 'Unknown error');
+          } else {
+            // Forward every progress event to the card
+            card?.status(type, payload);
+          }
+        }
+      }
+
+      // Feed the synthesized report back into chat context so Chaka can
+      // answer follow-up questions about it.
+      if (finalResult && finalResult.report) {
+        const ctx = [
+          `**Research complete:** "${query}"`,
+          `*${finalResult.sources?.length || 0} sources · ${Math.round((finalResult.elapsedMs || 0) / 1000)}s · via ${finalResult.provider || 'multi-llm'}*`,
+          '',
+          finalResult.report,
+        ].join('\n');
+        injectContextBubble(ctx);
+      }
+
+    } catch (err) {
+      console.error('[agentic-research] failed:', err);
+      const raw = String(err?.message || err || '');
+      let friendly = raw;
+      if (/network-request-failed|ERR_(NETWORK|CONNECTION|TIMED_OUT)|fetch failed/i.test(raw)) {
+        friendly = 'Network glitch reaching the research backend. Retry in a moment.';
+      }
+      card?.fail(friendly);
+    } finally {
+      setTimeout(() => { visionInFlight = false; }, 800);
+    }
   }
 
   // ─── AGENT — autonomous multi-step browser task (Phase 4D / Stagehand) ───
@@ -918,6 +1001,18 @@ Respond in natural prose (final_answer field), 1-3 sentences. Describe what the 
             const bubble = findLastBotBubble();
             deepStripMarker(bubble);
             triggerAgenticAgent(task);
+          }, 400);
+          return;
+        }
+
+        const researchMatch = fullText.match(RESEARCH_RE);
+        if (researchMatch) {
+          const researchQuery = researchMatch[1].trim();
+          console.log(`[agentic-research] 📚 RESEARCH marker → query="${researchQuery.slice(0, 80)}…"`);
+          setTimeout(() => {
+            const bubble = findLastBotBubble();
+            deepStripMarker(bubble);
+            triggerDeepResearch(researchQuery);
           }, 400);
           return;
         }
