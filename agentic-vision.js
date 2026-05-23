@@ -289,8 +289,10 @@
       if (!t.startsWith('{')) return null;
 
       const VISION_MAP = { look_webcam: 'webcam', look_screen: 'screen', ocr_screen: 'ocr' };
-      const BROWSE_ACTIONS = new Set(['browse','browse_url','navigate','open_url','scrape']);
-      const AGENT_ACTIONS = new Set(['agent_task','agent','autonomous_task']);
+      const BROWSE_ACTIONS = new Set(['browse','browse_url','navigate','open_url']);
+      const AGENT_ACTIONS  = new Set(['agent_task','agent','autonomous_task']);
+      const SCRAPE_ACTIONS = new Set(['scrape','scrape_url','deep_scrape','extract','extract_content']);
+      const RESEARCH_ACTIONS = new Set(['research','deep_research','dig','dig_up','investigate','find_info','find_all']);
 
       let action = null, payload = null;
       try {
@@ -312,6 +314,21 @@
       // Agent — payload is the natural-language task description
       if (AGENT_ACTIONS.has(action) && payload) {
         return { kind: 'agent', task: payload };
+      }
+
+      // Phase 6: Research (Grok-style multi-source dig) — payload is the query
+      if (RESEARCH_ACTIONS.has(action) && payload) {
+        return { kind: 'research', query: payload };
+      }
+
+      // Phase 5: Deep scrape (single URL → full content)
+      if (SCRAPE_ACTIONS.has(action) && payload) {
+        // If payload looks like a URL, route to scrape; otherwise treat as research
+        if (/^https?:\/\//i.test(payload) || /^[a-z0-9-]+\.[a-z]{2,}/i.test(payload)) {
+          const url = /^https?:\/\//i.test(payload) ? payload : 'https://' + payload;
+          return { kind: 'scrape', url };
+        }
+        return { kind: 'research', query: payload };
       }
 
       // Browse actions need a URL payload
@@ -1073,6 +1090,8 @@ Respond in natural prose (final_answer field), 1-3 sentences. Describe what the 
             if (legacy.kind === 'agent') triggerAgenticAgent(legacy.task);
             else if (legacy.kind === 'hands') triggerAgenticHands(legacy.action, legacy.target);
             else if (legacy.kind === 'eyes') triggerAgenticVision(legacy.source);
+            else if (legacy.kind === 'research') triggerDeepResearch(legacy.query);
+            else if (legacy.kind === 'scrape') triggerDeepScrape(legacy.url);
           }, 400);
           return;
         }
