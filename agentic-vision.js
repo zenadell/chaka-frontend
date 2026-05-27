@@ -488,6 +488,60 @@
   }
 
   // ─── DEEP RESEARCH — Phase 6: multi-source dig with synthesis ────────────
+  //
+  // Build a short identity blurb about the asker from chat memory + user
+  // profile + recent user messages. Sent as `userContext` so the LLM planner
+  // can disambiguate "find me / my company / a peer of mine" queries — the
+  // #1 reason research mis-identifies people is "no idea who's asking".
+  function buildUserContextBlurb() {
+    try {
+      const lines = [];
+      const state = window.state || {};
+      const profile = state.userProfile || window.userProfile || {};
+
+      // 1. Identity from auth profile
+      const name  = profile.displayName || profile.name  || state.userName;
+      const email = profile.email || state.userEmail;
+      if (name)  lines.push(`Asker's name: ${name}.`);
+      if (email) lines.push(`Email: ${email}.`);
+
+      // 2. Recent USER-side chat turns (their own messages, last 5, trimmed)
+      const container = document.getElementById('chat-messages');
+      if (container) {
+        const userMsgs = container.querySelectorAll('.message-group.user .message-content, .message-group.user .message, .message.user');
+        const recent = [];
+        for (let i = Math.max(0, userMsgs.length - 8); i < userMsgs.length; i++) {
+          const t = (userMsgs[i].textContent || '').replace(/\s+/g, ' ').trim();
+          if (t && t.length > 4) recent.push(t.slice(0, 180));
+        }
+        if (recent.length) {
+          lines.push(`Recent things the asker said in this chat (newest last):`);
+          recent.forEach(t => lines.push(`  • "${t}"`));
+        }
+      }
+
+      // 3. Any explicit memory snippets the app keeps in window.state.memories
+      const mems = state.memories || window.memories;
+      if (Array.isArray(mems) && mems.length) {
+        const top = mems.slice(0, 4).map(m => (typeof m === 'string' ? m : (m.content || m.text || ''))).filter(Boolean);
+        if (top.length) {
+          lines.push(`Long-term things Chaka knows about the asker:`);
+          top.forEach(m => lines.push(`  • ${m.slice(0, 200)}`));
+        }
+      }
+
+      // 4. Session title (often summarizes the topic)
+      const titleEl = document.querySelector('.history-item.active .title, .session-title');
+      if (titleEl?.textContent?.trim()) lines.push(`Current chat session title: "${titleEl.textContent.trim()}"`);
+
+      const blurb = lines.join('\n').slice(0, 1800);
+      return blurb || null;
+    } catch (e) {
+      console.warn('[research] context build failed:', e.message);
+      return null;
+    }
+  }
+
   async function triggerDeepResearch(query) {
     if (visionInFlight) {
       console.warn('[agentic-research] already in flight, skipping');
@@ -499,10 +553,14 @@
 
     try {
       const headers = await authHeaders();
+      const userContext = buildUserContextBlurb();
+      if (userContext) {
+        console.log('[agentic-research] 📎 sending userContext (' + userContext.length + ' chars)');
+      }
       const res = await fetch(`${getBackend()}/api/research`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, userContext }),
       });
 
       if (!res.ok) {
