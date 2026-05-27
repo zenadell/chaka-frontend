@@ -31,8 +31,11 @@
   // Deep-research marker — Phase 6 (Grok-style multi-source dig)
   //   [[RESEARCH:find me everything about Ezinna Emmanuel Nweke Temple]]
   const RESEARCH_RE = /(?:\[\[|<<)RESEARCH:([\s\S]+?)(?:\]\]|>>)/i;
+  // Deep-dig marker — Phase 8 (CREATOR-ONLY OSINT-grade dossier)
+  //   [[DIG:Ezinna Emmanuel Nweke jomiez.com]]
+  const DIG_RE = /(?:\[\[|<<)DIG:([\s\S]+?)(?:\]\]|>>)/i;
   // Combined strip pattern — removes ALL marker families from bubble text
-  const STRIP_RE = /(?:\[\[|<<)(?:EYES:(?:webcam|screen|ocr)|HANDS:(?:browse|screenshot):[^\]>]+?|HANDS:agent:[\s\S]+?|SCRAPE:https?:\/\/[^\]>]+?|RESEARCH:[\s\S]+?)(?:\]\]|>>)/gi;
+  const STRIP_RE = /(?:\[\[|<<)(?:EYES:(?:webcam|screen|ocr)|HANDS:(?:browse|screenshot):[^\]>]+?|HANDS:agent:[\s\S]+?|SCRAPE:https?:\/\/[^\]>]+?|RESEARCH:[\s\S]+?|DIG:[\s\S]+?)(?:\]\]|>>)/gi;
 
   // Reentrancy guard
   let visionInFlight = false;
@@ -539,6 +542,73 @@
     } catch (e) {
       console.warn('[research] context build failed:', e.message);
       return null;
+    }
+  }
+
+  // ─── DEEP DIG — Phase 8: CREATOR-ONLY OSINT-grade dossier ────────────────
+  async function triggerDeepDig(target) {
+    if (visionInFlight) { console.warn('[agentic-dig] already in flight, skipping'); return; }
+    visionInFlight = true;
+    const card = window.chakaDigCard?.create({ target });
+
+    // Try to extract a known domain from chat context (helps WHOIS/Wayback fire)
+    let knownDomain = null;
+    try {
+      const userMsgs = document.querySelectorAll('.message-group.user, .message.user');
+      const blob = Array.from(userMsgs).slice(-10).map(m => m.textContent || '').join(' ');
+      const m = blob.match(/(?:https?:\/\/)?([a-z0-9-]+\.[a-z]{2,}(?:\/[^\s]*)?)/i);
+      if (m) knownDomain = m[1].replace(/\/.*$/, '').toLowerCase();
+    } catch {}
+
+    try {
+      const headers = await authHeaders();
+      const userContext = buildUserContextBlurb();
+      const res = await fetch(`${getBackend()}/api/dig`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, userContext, knownDomain }),
+      });
+
+      if (res.status === 403) {
+        throw new Error('Deep Dig is creator-only. Your account is not authorized for this OSINT-grade tool.');
+      }
+      if (!res.ok) {
+        const err = await res.text().catch(() => 'unknown');
+        throw new Error(`Dig endpoint failed: ${res.status} ${err.slice(0, 200)}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResult = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+        for (const ev of events) {
+          if (!ev.trim()) continue;
+          const eventMatch = ev.match(/^event:\s*(\w+)/m);
+          const dataMatch  = ev.match(/^data:\s*(.+)$/m);
+          if (!dataMatch) continue;
+          let payload;
+          try { payload = JSON.parse(dataMatch[1]); } catch { continue; }
+          const type = eventMatch ? eventMatch[1] : 'message';
+          if (type === 'done') { finalResult = payload; card?.complete(payload); }
+          else if (type === 'error') { card?.fail(payload.error || 'Unknown error'); }
+          else { card?.status(type, payload); }
+        }
+      }
+
+      if (finalResult?.dossier) {
+        injectContextBubble(`**Deep dig dossier:** "${target}"\n\n${finalResult.dossier}`);
+      }
+    } catch (err) {
+      console.error('[agentic-dig] failed:', err);
+      card?.fail(err.message);
+    } finally {
+      setTimeout(() => { visionInFlight = false; }, 800);
     }
   }
 
@@ -1076,6 +1146,18 @@ Respond in natural prose (final_answer field), 1-3 sentences. Describe what the 
             const bubble = findLastBotBubble();
             deepStripMarker(bubble);
             triggerAgenticAgent(task);
+          }, 400);
+          return;
+        }
+
+        const digMatch = fullText.match(DIG_RE);
+        if (digMatch) {
+          const digTarget = digMatch[1].trim();
+          console.log(`[agentic-dig] 🎯 DIG marker → target="${digTarget.slice(0, 80)}…"`);
+          setTimeout(() => {
+            const bubble = findLastBotBubble();
+            deepStripMarker(bubble);
+            triggerDeepDig(digTarget);
           }, 400);
           return;
         }
