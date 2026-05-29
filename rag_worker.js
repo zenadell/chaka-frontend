@@ -11,7 +11,7 @@ let SIMILARITY_THRESHOLD = 0.4; // cosine similarity threshold for search result
 let EMBED_REQUEST_TIMEOUT_MS = 20000; // 20s timeout for embed requests
 
 // EMBED API URL is configured by the main thread. We accept a config message
-// that sets a `backend` base URL (e.g. https://chaka-backend.onrender.com).
+// that sets a `backend` base URL (e.g. https://chaka-backend-eh02.onrender.com).
 // This prevents the worker from calling localhost when deployed.
 let EMBED_API_URL = null;
 
@@ -109,7 +109,7 @@ function cosineSimilarity(vecA, vecB) {
 async function fetchEmbeddingFromServer(text) {
     try {
         // Use configured EMBED_API_URL, or fall back to the Render backend if not configured
-        const url = EMBED_API_URL || 'https://chaka-backend.onrender.com/api/rag/embed';
+        const url = EMBED_API_URL || 'https://chaka-backend-eh02.onrender.com/api/rag/embed';
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), EMBED_REQUEST_TIMEOUT_MS);
 

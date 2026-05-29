@@ -11,7 +11,7 @@
   function getBackend() {
     if (window.BACKEND_URL) return window.BACKEND_URL;
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    return isLocal ? 'http://localhost:3000' : 'https://chaka-backend.onrender.com';
+    return isLocal ? 'http://localhost:3000' : 'https://chaka-backend-eh02.onrender.com';
   }
 
   // ── HELPERS ────────────────────────────────────────────────────────────────

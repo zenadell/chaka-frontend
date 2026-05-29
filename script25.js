@@ -40,7 +40,7 @@ if (window.pdfjsLib) {
 // --- ⚙️ GLOBAL CONFIGURATION (RAG + Backend) ---
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const explicitBackendUrl = window.__BACKEND_URL__ ? String(window.__BACKEND_URL__).trim() : '';
-const defaultBackendUrl = isLocal ? 'http://localhost:3000' : 'https://chaka-backend.onrender.com';
+const defaultBackendUrl = isLocal ? 'http://localhost:3000' : 'https://chaka-backend-eh02.onrender.com';
 
 const APP_CONFIG = {
     BACKEND_URL: explicitBackendUrl || defaultBackendUrl,

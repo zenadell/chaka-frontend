@@ -170,7 +170,7 @@
 
   function getBackend() {
     if (window.BACKEND_URL) return window.BACKEND_URL;
-    return window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://chaka-backend.onrender.com';
+    return window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://chaka-backend-eh02.onrender.com';
   }
 
   function addSystemBubble(text) {
