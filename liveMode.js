@@ -252,6 +252,21 @@ const LiveMode = {
         this.initAudioContext();
         this.updateStatus("WAKING UP...", "#ff4500");
 
+        // Fetch User Location Context for the AI
+        let locationContext = "";
+        try {
+            const locResp = await fetch("https://ipapi.co/json/");
+            if (locResp.ok) {
+                const locData = await locResp.json();
+                if (locData.city && locData.country_name) {
+                    locationContext = `\n\n[SYSTEM NOTICE: The user's current physical location is ${locData.city}, ${locData.region}, ${locData.country_name}. Use this for localized context if relevant.]`;
+                    console.log(`🌍 Location fetched: ${locData.city}, ${locData.country_name}`);
+                }
+            }
+        } catch (e) {
+            console.warn("Could not fetch user location context.", e);
+        }
+
         const apiBase = window.BACKEND_URL || (window.location.protocol + "//" + window.location.host);
         const wsBase = apiBase.replace(/^http/, 'ws');
         const WS_URL = `${wsBase}/api/live/stream`;
@@ -267,8 +282,9 @@ const LiveMode = {
         this.socket.onopen = () => {
             const voiceId = this.elements.voiceSelect?.value || this.config.voiceId || "Puck";
             
-            // Inject short-term memory if reconnecting
-            let finalInstruction = this.config.systemInstruction;
+            // Inject location context and short-term memory
+            let finalInstruction = this.config.systemInstruction + locationContext;
+            
             if (this.sessionHistory.length > 0) {
                 finalInstruction += "\n\n--- PREVIOUS CONTEXT BEFORE CONNECTION DROP ---\n";
                 // Only take the last 20 turns to avoid blowing up the context window on long sessions
