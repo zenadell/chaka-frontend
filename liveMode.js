@@ -41,6 +41,7 @@ const LiveMode = {
     visionFps: 1, // 1 frame per second per source — balanced for token cost vs awareness
     visionFrameQuality: 0.6,
     visionMaxWidth: 800,
+    cameraFacing: 'user', // 'user' = front camera, 'environment' = back camera
 
     // Config from backend
     config: null,
@@ -454,13 +455,23 @@ const LiveMode = {
                 const wantsWebcam = !!call.args.webcam;
                 const wantsScreen = !!call.args.screen;
                 const reason = call.args.reason || "vision toggle";
-                console.log(`👁️  set_vision tool called → webcam=${wantsWebcam} screen=${wantsScreen} reason="${reason}"`);
+                const requestedFacing = call.args.camera_facing || 'user'; // default front camera
+                console.log(`👁️  set_vision tool called → webcam=${wantsWebcam} screen=${wantsScreen} facing=${requestedFacing} reason="${reason}"`);
 
                 try {
                     // Toggle each source independently. If state matches request, no-op.
                     if (wantsWebcam && !this.visionState.webcam) {
+                        this.cameraFacing = requestedFacing;
                         await this.startVisionSource('webcam');
-                        this.addChat(`📷 Webcam vision activated`, 'system');
+                        const camLabel = requestedFacing === 'environment' ? 'back' : 'front';
+                        this.addChat(`📷 Webcam vision activated (${camLabel} camera)`, 'system');
+                    } else if (wantsWebcam && this.visionState.webcam && requestedFacing !== this.cameraFacing) {
+                        // Camera is already on but user wants to switch facing direction
+                        this.stopVisionSource('webcam');
+                        this.cameraFacing = requestedFacing;
+                        await this.startVisionSource('webcam');
+                        const camLabel = requestedFacing === 'environment' ? 'back' : 'front';
+                        this.addChat(`📷 Switched to ${camLabel} camera`, 'system');
                     } else if (!wantsWebcam && this.visionState.webcam) {
                         this.stopVisionSource('webcam');
                         this.addChat(`📷 Webcam vision deactivated`, 'system');
@@ -474,12 +485,15 @@ const LiveMode = {
                         this.addChat(`🖥️ Screen vision deactivated`, 'system');
                     }
 
-                    resultText = `Vision state set: webcam=${this.visionState.webcam}, screen=${this.visionState.screen}.`;
+                    resultText = `Vision state set: webcam=${this.visionState.webcam}, screen=${this.visionState.screen}, camera_facing=${this.cameraFacing}.`;
                 } catch (err) {
                     console.error('❌ set_vision failed:', err);
                     // Roll back any partial state on failure
                     if (err.name === 'NotAllowedError') {
                         resultText = `Vision permission denied by user. ${err.message}`;
+                    } else if (err.name === 'OverconstrainedError') {
+                        // Device doesn't have the requested camera — fall back
+                        resultText = `This device doesn't have a ${requestedFacing === 'environment' ? 'back' : 'front'} camera. ${err.message}`;
                     } else {
                         resultText = `Failed to start vision: ${err.message}`;
                     }
@@ -568,7 +582,12 @@ const LiveMode = {
         let stream;
         if (source === 'webcam') {
             stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
+                video: {
+                    facingMode: { ideal: this.cameraFacing || 'user' },
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    frameRate: { ideal: 15 }
+                },
                 audio: false,
             });
         } else {
