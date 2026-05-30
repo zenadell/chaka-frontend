@@ -451,6 +451,11 @@ const LiveMode = {
                 const data = await resp.json();
                 resultText = data.result || "Could not extract content.";
                 this.addChat(`✅ Deep Scrape complete.`, "system");
+            } else if (["deep_research", "deep_dig", "agentic_hands"].includes(call.name)) {
+                // These are long-running agents. Do NOT await them.
+                // Fire them in the background and immediately return a success response to unblock the AI.
+                this.dispatchBackgroundAgent(call.name, call.args);
+                resultText = `Dispatched ${call.name} in the background. Tell the user it has started and you will let them know when it finishes. DO NOT WAIT FOR RESULTS NOW.`;
             } else if (call.name === "set_vision") {
                 const wantsWebcam = !!call.args.webcam;
                 const wantsScreen = !!call.args.screen;
@@ -535,6 +540,119 @@ const LiveMode = {
 
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify(toolResponseMsg));
+        }
+    },
+
+    // ========================
+    // BACKGROUND AGENT DISPATCH
+    // ========================
+    async dispatchBackgroundAgent(agentName, args) {
+        if (this.backgroundAgentRunning) {
+            this.addChat(`⚠️ Cannot start ${agentName}: Another deep agent is already running.`, "system");
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                this.socket.send(JSON.stringify({
+                    client_content: { turns: [{ role: "user", parts: [{ text: `[SYSTEM: The background agent ${agentName} failed to start because another agent is already running. Tell the user to wait for the current one to finish.]` }] }], turn_complete: true }
+                }));
+            }
+            return;
+        }
+
+        this.backgroundAgentRunning = true;
+        this.updateStatus(`RUNNING ${agentName.toUpperCase()}`, "#ff4500");
+        this.addChat(`⚙️ Started background task: ${agentName}`, "system");
+
+        const apiBase = window.BACKEND_URL || "";
+        const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
+        let finalOutput = "";
+
+        try {
+            if (agentName === "deep_research") {
+                const query = args.query;
+                const res = await fetch(`${apiBase}/api/research`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query }),
+                });
+                if (!res.ok) throw new Error(`Research failed: ${res.status}`);
+                
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const events = buffer.split('\\n\\n');
+                    buffer = events.pop();
+                    for (const event of events) {
+                        if (event.startsWith('data: ')) {
+                            const data = JSON.parse(event.replace('data: ', ''));
+                            if (data.type === 'complete') finalOutput = data.result || JSON.stringify(data.content);
+                        }
+                    }
+                }
+            } else if (agentName === "deep_dig") {
+                const target = args.target;
+                const res = await fetch(`${apiBase}/api/dig`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target }),
+                });
+                if (!res.ok) throw new Error(`Dig failed: ${res.status}`);
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const events = buffer.split('\\n\\n');
+                    buffer = events.pop();
+                    for (const event of events) {
+                        if (event.startsWith('data: ')) {
+                            const data = JSON.parse(event.replace('data: ', ''));
+                            if (data.type === 'complete') finalOutput = JSON.stringify(data.report || data);
+                        }
+                    }
+                }
+            } else if (agentName === "agentic_hands") {
+                const prompt = args.prompt;
+                const res = await fetch(`${apiBase}/api/hands/agent`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt }),
+                });
+                if (!res.ok) throw new Error(`Hands failed: ${res.status}`);
+                const data = await res.json();
+                finalOutput = data.result || JSON.stringify(data);
+            }
+
+            // Success injection
+            this.addChat(`✅ Background task ${agentName} completed.`, "system");
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                this.socket.send(JSON.stringify({
+                    client_content: {
+                        turns: [{ role: "user", parts: [{ text: `[SYSTEM NOTIFICATION: Background agent '${agentName}' has COMPLETED. Results: \\n\\n${finalOutput}\\n\\nPlease read and summarize these findings to the user now.]` }] }],
+                        turn_complete: true
+                    }
+                }));
+            }
+
+        } catch (err) {
+            console.error(`Background agent ${agentName} error:`, err);
+            this.addChat(`❌ Background task ${agentName} failed: ${err.message}`, "system");
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                this.socket.send(JSON.stringify({
+                    client_content: {
+                        turns: [{ role: "user", parts: [{ text: `[SYSTEM NOTIFICATION: Background agent '${agentName}' FAILED with error: ${err.message}. Please apologize to the user.]` }] }],
+                        turn_complete: true
+                    }
+                }));
+            }
+        } finally {
+            this.backgroundAgentRunning = false;
+            this.updateStatus("ONLINE", "#ffffff");
         }
     },
 
