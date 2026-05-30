@@ -558,12 +558,22 @@ const LiveMode = {
         }
 
         this.backgroundAgentRunning = true;
-        this.updateStatus(`RUNNING ${agentName.toUpperCase()}`, "#ff4500");
-        this.addChat(`⚙️ Started background task: ${agentName}`, "system");
+
+        // Determine display info
+        const agentMeta = {
+            deep_research: { label: 'DEEP RESEARCH', icon: '🔬', target: args.query },
+            deep_dig:      { label: 'DEEP DIG',      icon: '🕵️', target: args.target },
+            agentic_hands: { label: 'AGENTIC HANDS', icon: '🤖', target: args.prompt?.slice(0, 50) },
+        }[agentName] || { label: agentName.toUpperCase(), icon: '⚙️', target: '—' };
+
+        this.showAgentCard(agentMeta);
+        this.updateStatus(`RUNNING ${agentMeta.label}`, "#ff4500");
+        this.addChat(`⚙️ Started: ${agentMeta.label}`, "system");
 
         const apiBase = window.BACKEND_URL || "";
         const headers = (typeof window.getAuthHeaders === 'function') ? await window.getAuthHeaders() : {};
         let finalOutput = "";
+        let stepCount = 0;
 
         try {
             if (agentName === "deep_research") {
@@ -574,23 +584,13 @@ const LiveMode = {
                     body: JSON.stringify({ query }),
                 });
                 if (!res.ok) throw new Error(`Research failed: ${res.status}`);
-                
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const events = buffer.split('\\n\\n');
-                    buffer = events.pop();
-                    for (const event of events) {
-                        if (event.startsWith('data: ')) {
-                            const data = JSON.parse(event.replace('data: ', ''));
-                            if (data.type === 'complete') finalOutput = data.result || JSON.stringify(data.content);
-                        }
-                    }
-                }
+                finalOutput = await this._parseSSEStream(res, (type, payload) => {
+                    stepCount++;
+                    this.updateAgentCardStep(stepCount, type, payload);
+                    if (type === 'done') return payload;
+                    return null;
+                }, 'report');
+
             } else if (agentName === "deep_dig") {
                 const target = args.target;
                 const res = await fetch(`${apiBase}/api/dig`, {
@@ -599,41 +599,39 @@ const LiveMode = {
                     body: JSON.stringify({ target }),
                 });
                 if (!res.ok) throw new Error(`Dig failed: ${res.status}`);
+                finalOutput = await this._parseSSEStream(res, (type, payload) => {
+                    stepCount++;
+                    this.updateAgentCardStep(stepCount, type, payload);
+                    if (type === 'done') return payload;
+                    return null;
+                }, 'dossier');
 
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const events = buffer.split('\\n\\n');
-                    buffer = events.pop();
-                    for (const event of events) {
-                        if (event.startsWith('data: ')) {
-                            const data = JSON.parse(event.replace('data: ', ''));
-                            if (data.type === 'complete') finalOutput = JSON.stringify(data.report || data);
-                        }
-                    }
-                }
             } else if (agentName === "agentic_hands") {
                 const prompt = args.prompt;
                 const res = await fetch(`${apiBase}/api/hands/agent`, {
                     method: 'POST',
                     headers: { ...headers, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt }),
+                    body: JSON.stringify({ task: prompt, mode: 'cua', maxSteps: 35 }),
                 });
                 if (!res.ok) throw new Error(`Hands failed: ${res.status}`);
-                const data = await res.json();
-                finalOutput = data.result || JSON.stringify(data);
+                finalOutput = await this._parseSSEStream(res, (type, payload) => {
+                    stepCount++;
+                    this.updateAgentCardStep(stepCount, type, payload);
+                    if (type === 'done') return payload;
+                    return null;
+                }, 'message');
             }
 
-            // Success injection
-            this.addChat(`✅ Background task ${agentName} completed.`, "system");
+            // Truncate for websocket injection (Gemini has context limits)
+            const truncated = finalOutput.length > 8000 ? finalOutput.slice(0, 8000) + '\n\n[... truncated for voice summary]' : finalOutput;
+
+            // Success
+            this.completeAgentCard(true);
+            this.addChat(`✅ ${agentMeta.label} completed.`, "system");
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 this.socket.send(JSON.stringify({
                     client_content: {
-                        turns: [{ role: "user", parts: [{ text: `[SYSTEM NOTIFICATION: Background agent '${agentName}' has COMPLETED. Results: \\n\\n${finalOutput}\\n\\nPlease read and summarize these findings to the user now.]` }] }],
+                        turns: [{ role: "user", parts: [{ text: `[SYSTEM NOTIFICATION: Background agent '${agentMeta.label}' has COMPLETED. Results:\n\n${truncated}\n\nPlease summarize these findings to the user now in a conversational way.]` }] }],
                         turn_complete: true
                     }
                 }));
@@ -641,11 +639,12 @@ const LiveMode = {
 
         } catch (err) {
             console.error(`Background agent ${agentName} error:`, err);
-            this.addChat(`❌ Background task ${agentName} failed: ${err.message}`, "system");
+            this.completeAgentCard(false, err.message);
+            this.addChat(`❌ ${agentMeta.label} failed: ${err.message}`, "system");
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 this.socket.send(JSON.stringify({
                     client_content: {
-                        turns: [{ role: "user", parts: [{ text: `[SYSTEM NOTIFICATION: Background agent '${agentName}' FAILED with error: ${err.message}. Please apologize to the user.]` }] }],
+                        turns: [{ role: "user", parts: [{ text: `[SYSTEM NOTIFICATION: Background agent '${agentMeta.label}' FAILED with error: ${err.message}. Please apologize to the user and suggest trying again.]` }] }],
                         turn_complete: true
                     }
                 }));
@@ -654,6 +653,144 @@ const LiveMode = {
             this.backgroundAgentRunning = false;
             this.updateStatus("ONLINE", "#ffffff");
         }
+    },
+
+    // ========================
+    // SSE STREAM PARSER (shared)
+    // ========================
+    async _parseSSEStream(res, onEvent, resultKey) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalResult = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || '';
+
+            for (const ev of events) {
+                if (!ev.trim()) continue;
+                const eventMatch = ev.match(/^event:\s*(\w+)/m);
+                const dataMatch  = ev.match(/^data:\s*(.+)$/m);
+                if (!dataMatch) continue;
+                let payload;
+                try { payload = JSON.parse(dataMatch[1]); } catch { continue; }
+                const type = eventMatch ? eventMatch[1] : 'message';
+
+                const result = onEvent(type, payload);
+                if (type === 'done' || type === 'error') {
+                    finalResult = payload;
+                }
+            }
+        }
+
+        // Extract the best output from the final result
+        if (finalResult) {
+            return finalResult[resultKey] || finalResult.report || finalResult.dossier || finalResult.result || finalResult.message || JSON.stringify(finalResult);
+        }
+        return 'Agent completed but returned no data.';
+    },
+
+    // ========================
+    // AGENT STATUS CARD UI
+    // ========================
+    showAgentCard(meta) {
+        const card = document.getElementById('live-agent-status-card');
+        if (!card) return;
+
+        // Reset classes
+        card.className = 'running visible';
+
+        // Populate
+        card.querySelector('.agent-card-name').textContent = meta.label;
+        card.querySelector('.agent-card-target').textContent = meta.target || '—';
+        card.querySelector('.ring-icon').textContent = meta.icon;
+        card.querySelector('.status-text').textContent = 'Connecting to agent…';
+        card.querySelector('.agent-card-timer').textContent = '00:00';
+        card.querySelector('.agent-card-steps').textContent = '0 steps';
+
+        // Reset ring
+        card.querySelector('.ring-progress').style.strokeDashoffset = '113';
+
+        // Start timer
+        this._agentStartTime = Date.now();
+        this._agentStepCount = 0;
+        if (this._agentTimerInterval) clearInterval(this._agentTimerInterval);
+        this._agentTimerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - this._agentStartTime) / 1000);
+            const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const secs = String(elapsed % 60).padStart(2, '0');
+            const timerEl = card.querySelector('.agent-card-timer');
+            if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+        }, 1000);
+    },
+
+    updateAgentCardStep(stepNum, eventType, payload) {
+        const card = document.getElementById('live-agent-status-card');
+        if (!card) return;
+
+        this._agentStepCount = stepNum;
+        card.querySelector('.agent-card-steps').textContent = `${stepNum} steps`;
+
+        // Friendly status messages based on event type
+        const statusMessages = {
+            searching:       '🔍 Searching the web…',
+            scraping:        '🕷️ Scraping source…',
+            analyzing:       '🧠 Analyzing data…',
+            synthesizing:    '📝 Synthesizing report…',
+            step:            `⚡ Step ${stepNum}: ${payload?.action || payload?.reasoning || 'Working…'}`,
+            frame:           `🖥️ Step ${stepNum}: Browser active`,
+            heartbeat:       `💓 Still working… (step ${stepNum})`,
+            solving_captcha: '🔐 Solving CAPTCHA…',
+            captcha_solved:  '✅ CAPTCHA solved',
+            message:         payload?.message || payload?.text || `Processing step ${stepNum}…`,
+        };
+
+        const statusText = statusMessages[eventType] || payload?.message || payload?.status || `Working… (${eventType})`;
+        const textEl = card.querySelector('.status-text');
+        if (textEl) textEl.textContent = statusText;
+
+        // Progress ring — estimate progress (cap at 90% until done)
+        const estimatedProgress = Math.min(0.9, stepNum / 30);
+        const offset = 113 - (113 * estimatedProgress);
+        card.querySelector('.ring-progress').style.strokeDashoffset = String(offset);
+    },
+
+    completeAgentCard(success, errorMsg) {
+        const card = document.getElementById('live-agent-status-card');
+        if (!card) return;
+
+        // Stop timer
+        if (this._agentTimerInterval) {
+            clearInterval(this._agentTimerInterval);
+            this._agentTimerInterval = null;
+        }
+
+        // Update ring to 100%
+        card.querySelector('.ring-progress').style.strokeDashoffset = '0';
+
+        if (success) {
+            card.classList.remove('running');
+            card.classList.add('completed');
+            card.querySelector('.ring-icon').textContent = '✅';
+            card.querySelector('.status-text').textContent = 'Completed successfully!';
+        } else {
+            card.classList.remove('running');
+            card.classList.add('failed');
+            card.querySelector('.ring-icon').textContent = '❌';
+            card.querySelector('.status-text').textContent = errorMsg || 'Failed';
+        }
+
+        // Auto-dismiss after 8 seconds
+        setTimeout(() => {
+            card.classList.add('dismissing');
+            setTimeout(() => {
+                card.className = '';
+            }, 600);
+        }, 8000);
     },
 
     // ========================

@@ -461,3 +461,206 @@
         height: 48px;
     }
 }
+
+/* =========================================================
+   LIVE AGENT STATUS CARD (Floating glassmorphic HUD)
+   ========================================================= */
+#live-agent-status-card {
+    position: absolute;
+    top: 50px;
+    right: 16px;
+    z-index: 200;
+    width: 280px;
+    background: rgba(18, 18, 22, 0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 20px;
+    color: var(--live-text);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+    pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+#live-agent-status-card.visible {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    pointer-events: all;
+}
+
+/* Subtle animated border glow while running */
+#live-agent-status-card.running::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 21px;
+    background: conic-gradient(from var(--agent-glow-angle, 0deg), transparent 60%, var(--live-brand) 80%, transparent 100%);
+    z-index: -1;
+    animation: agentBorderSpin 3s linear infinite;
+    opacity: 0.5;
+}
+
+@property --agent-glow-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@keyframes agentBorderSpin {
+    to { --agent-glow-angle: 360deg; }
+}
+
+/* Card Header */
+.agent-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.agent-card-ring {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+}
+
+.agent-card-ring svg {
+    width: 44px;
+    height: 44px;
+    transform: rotate(-90deg);
+}
+
+.agent-card-ring .ring-track {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 3;
+}
+
+.agent-card-ring .ring-progress {
+    fill: none;
+    stroke: var(--live-brand);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 113;
+    stroke-dashoffset: 113;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    filter: drop-shadow(0 0 4px var(--live-brand-glow));
+}
+
+.agent-card-ring .ring-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.agent-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.agent-card-name {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--live-brand);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agent-card-target {
+    font-size: 12px;
+    color: var(--live-text-dim);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Status Text */
+.agent-card-status {
+    font-size: 12px;
+    color: var(--live-text);
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.agent-card-status .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--live-brand);
+    flex-shrink: 0;
+    animation: statusPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+
+.agent-card-status .status-text {
+    flex: 1;
+    line-height: 1.4;
+}
+
+/* Footer: Timer + Step Count */
+.agent-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--live-text-dim);
+    letter-spacing: 0.5px;
+}
+
+.agent-card-timer {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.agent-card-steps {
+    font-weight: 500;
+}
+
+/* Completion states */
+#live-agent-status-card.completed .agent-card-name { color: #34d399; }
+#live-agent-status-card.completed .ring-progress { stroke: #34d399; filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.4)); }
+#live-agent-status-card.completed .status-dot { background: #34d399; animation: none; opacity: 1; }
+#live-agent-status-card.completed::before { display: none; }
+
+#live-agent-status-card.failed .agent-card-name { color: #f87171; }
+#live-agent-status-card.failed .ring-progress { stroke: #f87171; filter: drop-shadow(0 0 4px rgba(248, 113, 113, 0.4)); }
+#live-agent-status-card.failed .status-dot { background: #f87171; animation: none; opacity: 1; }
+#live-agent-status-card.failed::before { display: none; }
+
+/* Auto-dismiss fade */
+#live-agent-status-card.dismissing {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+    #live-agent-status-card {
+        top: 48px;
+        right: 8px;
+        left: 8px;
+        width: auto;
+    }
+}
