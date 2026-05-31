@@ -547,6 +547,9 @@ const LiveMode = {
     // BACKGROUND AGENT DISPATCH
     // ========================
     async dispatchBackgroundAgent(agentName, args) {
+        console.log(`🚀 Dispatching Background Agent: ${agentName}`, args);
+        args = args || {}; // Protect against undefined args
+
         if (this.backgroundAgentRunning) {
             this.addChat(`⚠️ Cannot start ${agentName}: Another deep agent is already running.`, "system");
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -559,13 +562,14 @@ const LiveMode = {
 
         this.backgroundAgentRunning = true;
 
-        // Determine display info
+        // Determine display info safely
         const agentMeta = {
-            deep_research: { label: 'DEEP RESEARCH', icon: '🔬', target: args.query },
-            deep_dig:      { label: 'DEEP DIG',      icon: '🕵️', target: args.target },
-            agentic_hands: { label: 'AGENTIC HANDS', icon: '🤖', target: args.prompt?.slice(0, 50) },
+            deep_research: { label: 'DEEP RESEARCH', icon: '🔬', target: args.query || 'Research Topic' },
+            deep_dig:      { label: 'DEEP DIG',      icon: '🕵️', target: args.target || 'Target' },
+            agentic_hands: { label: 'AGENTIC HANDS', icon: '🤖', target: args.prompt?.slice(0, 50) || 'Task' },
         }[agentName] || { label: agentName.toUpperCase(), icon: '⚙️', target: '—' };
 
+        console.log(`Showing agent card for ${agentMeta.label}`);
         this.showAgentCard(agentMeta);
         this.updateStatus(`RUNNING ${agentMeta.label}`, "#ff4500");
         this.addChat(`⚙️ Started: ${agentMeta.label}`, "system");
