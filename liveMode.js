@@ -712,7 +712,7 @@ const LiveMode = {
         card.querySelector('.agent-card-name').textContent = meta.label;
         card.querySelector('.agent-card-target').textContent = meta.target || '—';
         card.querySelector('.ring-icon').textContent = meta.icon;
-        card.querySelector('.status-text').textContent = 'Connecting to agent…';
+        card.querySelector('.agent-card-status-text').textContent = 'Connecting to agent…';
         card.querySelector('.agent-card-timer').textContent = '00:00';
         card.querySelector('.agent-card-steps').textContent = '0 steps';
 
@@ -754,7 +754,7 @@ const LiveMode = {
         };
 
         const statusText = statusMessages[eventType] || payload?.message || payload?.status || `Working… (${eventType})`;
-        const textEl = card.querySelector('.status-text');
+        const textEl = card.querySelector('.agent-card-status-text');
         if (textEl) textEl.textContent = statusText;
 
         // Progress ring — estimate progress (cap at 90% until done)
@@ -780,12 +780,12 @@ const LiveMode = {
             card.classList.remove('running');
             card.classList.add('completed');
             card.querySelector('.ring-icon').textContent = '✅';
-            card.querySelector('.status-text').textContent = 'Completed successfully!';
+            card.querySelector('.agent-card-status-text').textContent = 'Completed successfully!';
         } else {
             card.classList.remove('running');
             card.classList.add('failed');
             card.querySelector('.ring-icon').textContent = '❌';
-            card.querySelector('.status-text').textContent = errorMsg || 'Failed';
+            card.querySelector('.agent-card-status-text').textContent = errorMsg || 'Failed';
         }
 
         // Auto-dismiss after 8 seconds
