@@ -153,7 +153,7 @@ const LiveMode = {
     },
 
     attachListeners() {
-        this.elements.triggerBtn?.addEventListener('click', () => this.open());
+        // this.elements.triggerBtn?.addEventListener('click', () => this.open());
         this.elements.exitBtn?.addEventListener('click', () => this.close());
         // Mic button = pure toggle, same as original
         this.elements.micBtn?.addEventListener('click', () => this.toggleMic());
@@ -451,11 +451,22 @@ const LiveMode = {
                 const data = await resp.json();
                 resultText = data.result || "Could not extract content.";
                 this.addChat(`✅ Deep Scrape complete.`, "system");
-            } else if (["deep_research", "deep_dig", "agentic_hands"].includes(call.name)) {
-                // These are long-running agents. Do NOT await them.
-                // Fire them in the background and immediately return a success response to unblock the AI.
-                this.dispatchBackgroundAgent(call.name, call.args);
-                resultText = `Dispatched ${call.name} in the background. Tell the user it has started and you will let them know when it finishes. DO NOT WAIT FOR RESULTS NOW.`;
+            } else if (["launch_research_tool", "launch_osint_tool", "launch_browser_tool"].includes(call.name)) {
+                console.log(`%c🚀 BRANCH: DEEP AGENT → ${call.name}`, 'background: purple; color: white; padding: 4px;');
+                
+                // Map the new names back to the internal agent names for dispatchBackgroundAgent
+                const internalAgentName = call.name === "launch_research_tool" ? "deep_research" 
+                                      : call.name === "launch_osint_tool" ? "deep_dig" 
+                                      : "agentic_hands";
+                
+                // For agentic_hands, map "instruction" back to "prompt"
+                let internalArgs = call.args;
+                if (call.name === "launch_browser_tool" && call.args.instruction) {
+                    internalArgs = { prompt: call.args.instruction };
+                }
+
+                this.dispatchBackgroundAgent(internalAgentName, internalArgs);
+                resultText = `Dispatched ${internalAgentName} in the background. Tell the user it has started and you will let them know when it finishes. DO NOT WAIT FOR RESULTS NOW.`;
             } else if (call.name === "set_vision") {
                 const wantsWebcam = !!call.args.webcam;
                 const wantsScreen = !!call.args.screen;
@@ -626,12 +637,33 @@ const LiveMode = {
                 }, 'message');
             }
 
-            // Truncate for websocket injection (Gemini has context limits)
-            const truncated = finalOutput.length > 8000 ? finalOutput.slice(0, 8000) + '\n\n[... truncated for voice summary]' : finalOutput;
+            // Format finalOutput for Gemini
+            let rawTextForAi = typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput, (key, val) => {
+                if (key === 'finalScreenshot' || key === 'screenshot') return '[Base64 Image Omitted]';
+                return val;
+            }, 2);
+
+            const truncated = rawTextForAi.length > 8000 ? rawTextForAi.slice(0, 8000) + '\n\n[... truncated for voice summary]' : rawTextForAi;
+
+            // Check if it's a soft-failure (done event with success: false)
+            if (typeof finalOutput === 'object' && finalOutput !== null && finalOutput.success === false) {
+                const errMsg = finalOutput.message || finalOutput.error || "Agent failed to complete the task.";
+                throw new Error(errMsg);
+            }
 
             // Success
             this.completeAgentCard(true);
             this.addChat(`✅ ${agentMeta.label} completed.`, "system");
+
+            // Display screenshot if agentic_hands returned one
+            if (typeof finalOutput === 'object' && finalOutput?.finalScreenshot) {
+                const imgDiv = document.createElement("div");
+                imgDiv.className = `live-msg system`;
+                imgDiv.innerHTML = `<strong>Final Screenshot:</strong><br><img src="data:${finalOutput.screenshotMime || 'image/jpeg'};base64,${finalOutput.finalScreenshot}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" />`;
+                this.elements.chatLog.appendChild(imgDiv);
+                this.elements.chatLog.scrollTop = this.elements.chatLog.scrollHeight;
+            }
+
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 this.socket.send(JSON.stringify({
                     client_content: {
@@ -1588,4 +1620,5 @@ const LiveMode = {
 };
 
 LiveMode.init();
+window.LiveMode = LiveMode;
 export default LiveMode;

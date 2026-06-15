@@ -745,7 +745,12 @@
           try { payload = JSON.parse(dataMatch[1]); } catch { continue; }
           const type = eventMatch ? eventMatch[1] : 'message';
 
-          if (type === 'frame') {
+          if (type === 'start') {
+            // Backend sends the actual model name in the start event
+            if (payload.modelName) {
+              console_?.setModel?.(payload.modelName);
+            }
+          } else if (type === 'frame') {
             // Live 6fps viewport stream
             console_?.frame(payload.frame, payload.mime);
           } else if (type === 'step') {

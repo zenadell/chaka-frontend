@@ -15,7 +15,7 @@ window.EducationMode = (function () {
     friendly: {
       id: 'friendly',
       name: 'Friendly Mentor',
-      icon: '😊',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>',
       label: 'Default',
       prompt: `**TEACHING STYLE — Friendly Mentor:**
 You are a warm, supportive tutor. Use analogies, real-world examples, and encouraging language.
@@ -26,7 +26,7 @@ Use phrases like "Great question!", "You're on the right track!", and "Think of 
     strict: {
       id: 'strict',
       name: 'Strict Teacher',
-      icon: '📏',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="15" r="4"></circle><circle cx="18" cy="15" r="4"></circle><path d="M14 15a2 2 0 0 0-2-2 2 2 0 0 0-2 2"></path><path d="M2.5 13L5 7c.7-1.3 2.1-2 3.5-2h7c1.4 0 2.8.7 3.5 2l2.5 6"></path></svg>',
       label: '',
       prompt: `**TEACHING STYLE — Strict Teacher:**
 You are a disciplined, no-nonsense instructor. Be direct and precise.
@@ -38,7 +38,7 @@ Expect effort before giving answers. Ask "What do you think?" before explaining.
     exam: {
       id: 'exam',
       name: 'Exam Coach',
-      icon: '🎯',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>',
       label: '',
       prompt: `**TEACHING STYLE — Exam Coach:**
 You are an exam strategist. Focus on what matters for passing tests.
@@ -50,7 +50,7 @@ Use phrases like "In an exam, they'd ask this as...", "The trick here is...", "M
     motivational: {
       id: 'motivational',
       name: 'Motivational Mentor',
-      icon: '🔥',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
       label: '',
       prompt: `**TEACHING STYLE — Motivational Mentor:**
 You are an energetic, confidence-boosting mentor. Every answer should inspire.
@@ -61,7 +61,7 @@ Use phrases like "You've got this!", "One step at a time", "Look how far you've 
     debater: {
       id: 'debater',
       name: 'The Debater',
-      icon: '⚔️',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>',
       label: 'New',
       prompt: `**TEACHING STYLE — The Debater (Socratic Method):**
 You are a skilled debater who helps students sharpen their thinking.
@@ -163,7 +163,9 @@ When the user asks for study help, you have these enhanced capabilities:
     return `
       <div id="edu-mode-toggle" class="edu-mode-toggle ${isActive ? 'active' : ''}">
         <div class="edu-mode-toggle-label">
-          <span class="edu-icon">🎓</span>
+          <span class="edu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+          </span>
           <span>Education Mode</span>
         </div>
         <div class="edu-mode-switch"></div>
@@ -177,25 +179,42 @@ When the user asks for study help, you have these enhanced capabilities:
 
   function buildToolbarHTML() {
     return `
-      <div id="edu-toolbar" class="edu-toolbar ${isActive ? 'visible' : ''}">
-        <button class="edu-tool-btn" data-tool="notes">
-          <span class="tool-icon">📝</span> Notes
+      <div id="edu-tools-wrapper" class="edu-tools-wrapper ${isActive ? 'visible' : ''}">
+        <button id="edu-tools-toggle" class="icon-btn edu-icon-btn" title="Study Tools">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+          </svg>
         </button>
-        <button class="edu-tool-btn" data-tool="quiz">
-          <span class="tool-icon">📊</span> Quiz
-        </button>
-        <button class="edu-tool-btn" data-tool="flashcards">
-          <span class="tool-icon">🃏</span> Flashcards
-        </button>
-        <button class="edu-tool-btn" data-tool="timetable">
-          <span class="tool-icon">📅</span> Timetable
-        </button>
-        <button class="edu-tool-btn" data-tool="examprep">
-          <span class="tool-icon">🎯</span> Exam Prep
-        </button>
-        <button class="edu-tool-btn" data-tool="eli10">
-          <span class="tool-icon">💡</span> ELI10
-        </button>
+        <div id="edu-tools-popup" class="edu-tools-popup">
+          <div class="edu-popup-header">Study Tools</div>
+          <div class="edu-popup-grid">
+            <button class="edu-tool-btn color-notes" data-tool="notes">
+              <div class="edu-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
+              <span>Notes</span>
+            </button>
+            <button class="edu-tool-btn color-quiz" data-tool="quiz">
+              <div class="edu-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+              <span>Quiz</span>
+            </button>
+            <button class="edu-tool-btn color-flashcards" data-tool="flashcards">
+              <div class="edu-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></div>
+              <span>Flashcards</span>
+            </button>
+            <button class="edu-tool-btn color-timetable" data-tool="timetable">
+              <div class="edu-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
+              <span>Timetable</span>
+            </button>
+            <button class="edu-tool-btn color-examprep" data-tool="examprep">
+              <div class="edu-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg></div>
+              <span>Exam Prep</span>
+            </button>
+            <button class="edu-tool-btn color-eli10" data-tool="eli10">
+              <div class="edu-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="22"></line><line x1="2" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"></line><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"></line><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"></line><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"></line></svg></div>
+              <span>ELI10</span>
+            </button>
+          </div>
+        </div>
       </div>`;
   }
 
@@ -297,6 +316,12 @@ When the user asks for study help, you have these enhanced capabilities:
     // Focus input
     setTimeout(() => document.getElementById('edu-toolkit-input')?.focus(), 100);
 
+    // Initialize custom select UI if available
+    const nativeSelect = document.getElementById('edu-toolkit-select');
+    if (nativeSelect && window.initCustomSelect) {
+      window.initCustomSelect(nativeSelect);
+    }
+
     // Event handlers
     document.getElementById('edu-toolkit-cancel').onclick = () => {
       document.getElementById('edu-toolkit-modal')?.remove();
@@ -392,14 +417,43 @@ When the user asks for study help, you have these enhanced capabilities:
       });
     }
 
-    // 2. Insert toolbar above the input wrapper
-    const inputWrapper = document.getElementById('input-wrapper');
-    if (inputWrapper) {
-      inputWrapper.insertAdjacentHTML('beforebegin', buildToolbarHTML());
+    // 2. Insert tools into left-actions
+    const leftActions = document.querySelector('.left-actions');
+    if (leftActions) {
+      leftActions.insertAdjacentHTML('beforeend', buildToolbarHTML());
+
+      // Toggle popup
+      const toggleBtn = document.getElementById('edu-tools-toggle');
+      const popup = document.getElementById('edu-tools-popup');
+      
+      if (toggleBtn && popup) {
+        toggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          popup.classList.toggle('show');
+          
+          // close composer popup if open
+          const composerPopup = document.getElementById('composer-actions-popup');
+          if (composerPopup && composerPopup.classList.contains('show')) {
+            composerPopup.classList.remove('show');
+            document.getElementById('composer-actions-btn')?.classList.remove('active');
+          }
+          
+          const customModelDropdown = document.getElementById('custom-model-dropdown');
+          if (customModelDropdown) customModelDropdown.classList.add('hidden');
+        });
+
+        // Close on click outside
+        document.addEventListener('click', (e) => {
+          if (!popup.contains(e.target) && e.target !== toggleBtn) {
+            popup.classList.remove('show');
+          }
+        });
+      }
 
       // Toolbar click handlers
       document.querySelectorAll('.edu-tool-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+          if(popup) popup.classList.remove('show');
           const tool = btn.dataset.tool;
           if (tool === 'eli10') {
             handleELI10();

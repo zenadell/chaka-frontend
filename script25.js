@@ -344,8 +344,7 @@ const DOMElements = {
     messageInput: document.getElementById('message-input'),
     sendBtn: document.getElementById('send-btn'),
     statusRow: document.getElementById('status-row'),
-    themeToggle: document.getElementById('theme-toggle'), // ID is same, but moved
-    themeIcon: document.getElementById('theme-icon-popup'), // ✅ [MODIFIED] ID updated to new popup icon
+    themeSegments: document.querySelectorAll('.theme-segment'),
     voiceSelect: document.getElementById('voice-selection-dropdown'), // ✅ [NEW] Voice Selection Dropdown
     apiStatusRow: document.getElementById('api-status-row'),
     personalityPreviewModal: document.getElementById('personality-preview-modal'),
@@ -415,6 +414,82 @@ const LOADER_SVG_ICON = `<svg class="toast-loader-svg" viewBox="0 0 50 50"><circ
 const PDF_LINK_LOADER_ICON = `<svg class="link-loader-svg" viewBox="0 0 50 50"><circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle></svg>`;
 const PDF_LINK_SUCCESS_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 10-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>`;
 const PDF_LINK_ERROR_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 10-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" /></svg>`;
+
+// --- ✅ [NEW] BEAUTIFUL CUSTOM SELECT UI ---
+/**
+ * Transforms a native <select> element into a beautiful custom UI.
+ * @param {HTMLSelectElement} nativeSelect - The select element to transform
+ */
+function initCustomSelect(nativeSelect) {
+    if (!nativeSelect || nativeSelect.dataset.customized) return;
+    nativeSelect.dataset.customized = 'true';
+    nativeSelect.style.display = 'none';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'chaka-custom-select-wrapper';
+
+    const trigger = document.createElement('div');
+    trigger.className = 'chaka-custom-select-trigger';
+
+    const triggerText = document.createElement('span');
+    const selectedOption = nativeSelect.options[nativeSelect.selectedIndex] || nativeSelect.options[0];
+    triggerText.textContent = selectedOption ? selectedOption.text : 'Select...';
+
+    const arrow = document.createElement('div');
+    arrow.innerHTML = `<svg class="arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+    trigger.appendChild(triggerText);
+    trigger.appendChild(arrow.firstChild);
+
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'chaka-custom-select-options';
+
+    const updateOptionsUI = () => {
+        optionsContainer.innerHTML = '';
+        Array.from(nativeSelect.options).forEach((option, index) => {
+            const optDiv = document.createElement('div');
+            optDiv.className = 'chaka-custom-option';
+            if (nativeSelect.selectedIndex === index) optDiv.classList.add('selected');
+            optDiv.textContent = option.text;
+            
+            optDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                nativeSelect.selectedIndex = index;
+                triggerText.textContent = option.text;
+                nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                wrapper.classList.remove('open');
+                updateOptionsUI();
+            });
+            optionsContainer.appendChild(optDiv);
+        });
+    };
+    updateOptionsUI();
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = wrapper.classList.contains('open');
+        document.querySelectorAll('.chaka-custom-select-wrapper').forEach(w => w.classList.remove('open'));
+        if (!isOpen) wrapper.classList.add('open');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) wrapper.classList.remove('open');
+    });
+
+    // Listen to native select changes (e.g. changed via code)
+    nativeSelect.addEventListener('change', () => {
+        const currentlySelected = nativeSelect.options[nativeSelect.selectedIndex];
+        if (currentlySelected) triggerText.textContent = currentlySelected.text;
+        updateOptionsUI();
+    });
+
+    wrapper.appendChild(trigger);
+    wrapper.appendChild(optionsContainer);
+    nativeSelect.parentNode.insertBefore(wrapper, nativeSelect.nextSibling);
+}
+
+// Make it globally available so educationMode.js can use it
+window.initCustomSelect = initCustomSelect;
 
 
 // --- ✅ [NEW] NON-BLOCKING TOAST NOTIFICATION SYSTEM ---
@@ -494,7 +569,7 @@ let state = {
     sessionsUnsub: null,
     messagesUnsub: null,
     configPromise: null,
-    currentTheme: localStorage.getItem('chatTheme') || 'light',
+    currentTheme: localStorage.getItem('chatTheme') || 'system',
     triggers: [],
     triggerUnsub: null,
     sessionWasPreviouslyBlocked: false,
@@ -535,7 +610,7 @@ let lastInputWasVoice = false;
 // --- botConfig with TTS properties (UNCHANGED) ---
 let botConfig = {
     botName: "chaka",
-    themeColor: "#4F46E5",
+    themeColor: "#f97316",
     allowFileUpload: false,
     apiKey: "",
     apiKeys: {},
@@ -944,7 +1019,28 @@ async function reportKeyFailure(keyId) {
 
 // --- UTILITIES (UNCHANGED) ---
 const sanitize = (s) => typeof s === 'string' ? s.trim() : '';
-const autosize = (el) => { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 150)}px`; };
+const autosize = (el) => {
+    const wrapper = document.getElementById('input-wrapper');
+    if (!wrapper) {
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+        return;
+    }
+    el.style.transition = 'none';
+    const currentHeight = el.clientHeight;
+    wrapper.classList.remove('is-expanded');
+    el.style.height = '60px';
+    const needsExpansion = el.scrollHeight > 60 || el.value.includes('\n');
+    if (needsExpansion) {
+        wrapper.classList.add('is-expanded');
+        el.style.height = '60px';
+    }
+    const targetHeight = Math.min(el.scrollHeight, 160);
+    el.style.height = currentHeight + 'px';
+    void el.offsetHeight;
+    el.style.transition = 'height 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
+    el.style.height = `${targetHeight}px`;
+};
 const parseBool = (v) => v === true || v === 'true';
 const scrollToBottom = (behavior = 'auto') => { DOMElements.chatMessages.scrollTo({ top: DOMElements.chatMessages.scrollHeight, behavior }); };
 
@@ -1300,23 +1396,119 @@ function resetFileInput() {
 
 
 // --- THEME & UI HELPERS (UNCHANGED) ---
-const applyTheme = (theme) => {
-    DOMElements.body.dataset.theme = theme;
-    localStorage.setItem('chatTheme', theme);
-    const isDark = theme === 'dark';
-
-    // ✅ [MODIFIED] Update new icon container and text label
-    if (DOMElements.themeIcon) {
-        DOMElements.themeIcon.innerHTML = isDark
-            ? `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" /></svg>`
-            : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>`;
+const applyTheme = (themeSetting, event = null) => {
+    let isDark;
+    if (themeSetting === 'system') {
+        isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } else {
+        isDark = themeSetting === 'dark';
     }
-    if (DOMElements.themeText) {
-        DOMElements.themeText.textContent = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    const actualTheme = isDark ? 'dark' : 'light';
+
+    const doUpdate = () => {
+        DOMElements.body.dataset.theme = actualTheme;
+        localStorage.setItem('chatTheme', themeSetting);
+
+        if (DOMElements.themeSegments) {
+            DOMElements.themeSegments.forEach(btn => {
+                if (btn.dataset.themeVal === themeSetting) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+    };
+
+    if (event && document.startViewTransition) {
+        const x = event.clientX;
+        const y = event.clientY;
+        const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+
+        const transition = document.startViewTransition(() => {
+            doUpdate();
+        });
+
+        transition.ready.then(() => {
+            const size = endRadius * 2.5; // scale up to cover screen
+            document.documentElement.animate(
+                {
+                    WebkitMaskImage: [
+                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`,
+                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`
+                    ],
+                    WebkitMaskSize: [
+                        `0px 0px`,
+                        `${size}px ${size}px`
+                    ],
+                    WebkitMaskPosition: [
+                        `${x}px ${y}px`,
+                        `${x - size/2}px ${y - size/2}px`
+                    ],
+                    WebkitMaskRepeat: ['no-repeat', 'no-repeat'],
+                    maskImage: [
+                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`,
+                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`
+                    ],
+                    maskSize: [
+                        `0px 0px`,
+                        `${size}px ${size}px`
+                    ],
+                    maskPosition: [
+                        `${x}px ${y}px`,
+                        `${x - size/2}px ${y - size/2}px`
+                    ],
+                    maskRepeat: ['no-repeat', 'no-repeat'],
+                    filter: [
+                        `brightness(1.5) saturate(1.5)`,
+                        `brightness(1) saturate(1)`
+                    ]
+                },
+                {
+                    duration: 900,
+                    easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+                    pseudoElement: '::view-transition-new(root)'
+                }
+            );
+        });
+    } else {
+        doUpdate();
     }
 };
-// Note: The event listener below is still correct as the ID #theme-toggle is unchanged.
-DOMElements.themeToggle.addEventListener('click', () => { state.currentTheme = state.currentTheme === 'light' ? 'dark' : 'light'; applyTheme(state.currentTheme); });
+
+if (DOMElements.themeSegments) {
+    DOMElements.themeSegments.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const val = btn.dataset.themeVal;
+            if (val === state.currentTheme) return;
+            state.currentTheme = val;
+            
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile && DOMElements.sidebar && DOMElements.sidebar.classList.contains('open')) {
+                DOMElements.sidebar.classList.remove('open');
+                if (DOMElements.menuBtn) {
+                    DOMElements.menuBtn.classList.remove('active');
+                }
+                if (DOMElements.userSettingsPopup) {
+                    DOMElements.userSettingsPopup.classList.remove('show');
+                }
+                if (DOMElements.overlay) {
+                    DOMElements.overlay.classList.remove('show');
+                }
+                const syntheticEvent = { clientX: e.clientX, clientY: e.clientY };
+                setTimeout(() => {
+                    applyTheme(state.currentTheme, syntheticEvent);
+                }, 350);
+            } else {
+                applyTheme(state.currentTheme, e);
+            }
+        });
+    });
+}
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (state.currentTheme === 'system') applyTheme('system');
+});
 
 // --- ✅ [NEW] Voice Selection Listener ---
 if (DOMElements.voiceSelect) {
@@ -1348,7 +1540,9 @@ const showTypingIndicator = (show) => {
     if (show && !indicator) {
         indicator = document.createElement('div');
         indicator.className = 'typing-indicator';
-        indicator.innerHTML = '<span></span><span></span><span></span>';
+        indicator.innerHTML = `
+            <div class="premium-loader"></div>
+        `;
         DOMElements.chatMessages.appendChild(indicator);
         scrollToBottom('smooth');
     } else if (!show && indicator) {
@@ -1410,8 +1604,8 @@ const applyConfigToUI = () => {
             avatarEl.alt = 'Bot avatar';
         }
     }
-    document.documentElement.style.setProperty('--accent-light', botConfig.themeColor || '#4F46E5');
-    document.documentElement.style.setProperty('--accent-dark', botConfig.themeColor ? `${botConfig.themeColor}aa` : '#818CF8');
+    document.documentElement.style.setProperty('--accent-light', botConfig.themeColor || '#f97316');
+    document.documentElement.style.setProperty('--accent-dark', botConfig.themeColor ? `${botConfig.themeColor}aa` : '#fb923c');
 
     if (botConfig.botBubbleColor) {
         document.documentElement.style.setProperty('--bot-bubble', botConfig.botBubbleColor);
@@ -2106,6 +2300,28 @@ async function subscribeSessions(retryCount = 0) {
     }
 }
 
+const WELCOME_PHRASES = [
+    "What's on your mind {name}", "Ready when you are {name}", "Let's get to work {name}",
+    "Talk to me {name}", "What are we tackling today {name}", "Hit me with your best idea {name}",
+    "What's the plan {name}", "Let's create something {name}", "Awaiting your command {name}",
+    "What's cooking {name}", "Let's brainstorm {name}", "Your turn {name}", "What's the word {name}",
+    "Let's explore {name}", "Drop your thoughts here {name}", "How can I assist today {name}",
+    "Tell me everything {name}", "Lead the way {name}", "What's next on the agenda {name}",
+    "Let's make some magic {name}", "Show me what you've got {name}", "Let's dive right in {name}",
+    "What are we building today {name}", "Give me a task {name}", "Time to shine {name}",
+    "Ohayou, let's start {name}", "Moshi moshi {name}", "Konnichiwa {name}",
+    "Hola, what's up {name}", "¿Qué tal {name}", "¿Qué pasa {name}",
+    "Bonjour, where to {name}", "Salut {name}", "Ciao, what's the plan {name}",
+    "Buongiorno {name}", "Aloha {name}", "Namaste, how can I help {name}",
+    "Guten Tag, what's next {name}", "Hallo, let's chat {name}", "Jambo {name}",
+    "Ni hao {name}", "Annyeonghaseyo {name}", "Privet, what's the word {name}",
+    "Olá, ready to go {name}", "Shalom {name}", "Ahlan {name}",
+    "Sawadee {name}", "Kia ora {name}", "Hi {name}, let’s get into it"
+];
+
+let currentWelcomePhrase = null;
+let currentWelcomeSessionId = null;
+
 // --- subscribeMessages (HYBRID: Turso Implementation) ---
 async function subscribeMessages() {
     if (!state.sessionId) return;
@@ -2117,41 +2333,26 @@ async function subscribeMessages() {
         stopCurrentAudio();
         const container = DOMElements.chatMessages;
 
-        if (!chats || chats.length === 0) {
-            if (container.children.length === 0 || !container.querySelector('#welcome-screen')) {
-                const suggestions = (botConfig.promptSuggestions || []).slice(0, 6);
-                let suggestionButtonsHTML = '';
-
-                if (suggestions.length > 0) {
-                    suggestionButtonsHTML = suggestions.map(s =>
-                        `<button class="prompt-suggestion-btn" data-prompt="${sanitize(s.prompt)}">
-                        <span class="prompt-title">${s.icon || ''} ${s.title}</span>
-                    </button>`
-                    ).join('');
+        const visibleChats = chats ? chats.filter(msg => !msg.internal) : [];
+        if (!chats || chats.length === 0 || visibleChats.length === 0) {
+            document.getElementById('chat-container')?.classList.remove('is-chatting');
+            const welcomeScreen = document.getElementById('welcome-screen');
+            if (welcomeScreen) {
+                const userFirst = (state.userDisplayName || 'User').split(' ')[0];
+                const greeting = welcomeScreen.querySelector('#welcome-greeting');
+                if (greeting) {
+                    if (state.sessionId !== currentWelcomeSessionId || !currentWelcomePhrase) {
+                        const randomTemplate = WELCOME_PHRASES[Math.floor(Math.random() * WELCOME_PHRASES.length)];
+                        currentWelcomePhrase = randomTemplate.replace('{name}', sanitize(userFirst));
+                        currentWelcomeSessionId = state.sessionId;
+                    }
+                    greeting.textContent = currentWelcomePhrase;
                 }
-
-                const welcomeMsg = sanitize(botConfig.welcomeMessage || "How can I help you today?");
-                container.innerHTML = `
-                <div id="welcome-screen">
-                    <dotlottie-wc src="https://lottie.host/21d66b08-a3d6-4708-9843-5eacc664e174/Oxfbcz3F2M.lottie" style="width: 300px;height: 300px" speed="1" autoplay loop></dotlottie-wc>
-                    <h3>${welcomeMsg}</h3>
-                    ${suggestions.length > 0 ? `<div class="prompt-suggestions">${suggestionButtonsHTML}</div>` : ''}
-                </div>`;
-
-                container.querySelectorAll('.prompt-suggestion-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const promptText = e.currentTarget.dataset.prompt;
-                        DOMElements.messageInput.value = promptText;
-                        DOMElements.messageInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        DOMElements.sendBtn.click();
-                    });
-                });
             }
             return;
         }
 
-        const welcome = container.querySelector('#welcome-screen');
-        if (welcome) welcome.remove();
+        document.getElementById('chat-container')?.classList.add('is-chatting');
 
         let lastSender = null;
 
@@ -2220,9 +2421,10 @@ async function subscribeMessages() {
             if (msg.sender === 'bot') {
                 processedText = processedText.replace(placeholderRegex, () => `<div class="image-placeholder"><div class="spinner"></div><p>Generating image...</p></div>`);
                 processedText = processedText.replace(imageRegex, (m, p, url) => `<a href="${url}" target="_blank"><img src="${url}" class="message-image-attachment"></a>`);
+                content.innerHTML += marked.parse(processedText);
+            } else {
+                content.textContent = processedText;
             }
-
-            content.innerHTML += marked.parse(processedText);
 
             let urls = [];
             try { if (msg.imageUrls && Array.isArray(msg.imageUrls)) urls = msg.imageUrls; } catch (e) { }
@@ -2339,7 +2541,8 @@ async function ensureUser(authUser) {
     // Populate user profile UI
     const placeholderAvatar = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     if (DOMElements.userAvatar) DOMElements.userAvatar.src = authUser.photoURL || placeholderAvatar;
-    if (DOMElements.userDisplayName) DOMElements.userDisplayName.textContent = authUser.displayName || 'New User';
+    state.userDisplayName = authUser.displayName || 'New User';
+    if (DOMElements.userDisplayName) DOMElements.userDisplayName.textContent = state.userDisplayName;
     if (DOMElements.userEmail) DOMElements.userEmail.textContent = authUser.email;
 
     const trackingData = await trackUserLocationAndDevice();
@@ -2501,6 +2704,7 @@ function toggleSendButtonState(buttonState, isDisabled = false) {
         if (icons[icon]) icons[icon].style.display = 'none';
     }
     btn.disabled = isDisabled;
+    btn.classList.remove('send-mode-active');
 
     switch (buttonState) {
         case 'mic':
@@ -2510,6 +2714,7 @@ function toggleSendButtonState(buttonState, isDisabled = false) {
         case 'send':
             if (icons.send) icons.send.style.display = 'block';
             btn.title = 'Send';
+            btn.classList.add('send-mode-active');
             break;
         case 'stop':
             if (icons.stop) icons.stop.style.display = 'block';
@@ -2634,7 +2839,7 @@ async function makeApiRequest(requestBody, apiKey, abortSignal) {
                     }
                 }
 
-                botMessageContent.innerHTML = marked.parse(displayString + '<span class="typing-cursor"></span>');
+                botMessageContent.innerHTML = marked.parse(displayString);
 
                 // Auto-scroll only if near bottom
                 const chatMessages = DOMElements.chatMessages;
@@ -2718,8 +2923,7 @@ function cleanupAfterLoop() {
         DOMElements.statusRow.textContent = '';
     }
 
-    // 4. ALWAYS remove typing cursors
-    document.querySelectorAll('.typing-cursor').forEach(el => el.remove());
+    // 4. Cursor cleanup removed
 
     // 5. Reset fetch controller
     fetchController = null;
@@ -2812,7 +3016,7 @@ async function triggerAutoContinue(preservedPayload) {
     if (botConfig.botBubbleColor) botMessageEl.style.background = botConfig.botBubbleColor;
     const botMessageContent = document.createElement('div');
     botMessageContent.className = 'message-content';
-    botMessageContent.innerHTML = '<span class="typing-cursor"></span>';
+    botMessageContent.innerHTML = '';
 
     botMessageEl.appendChild(botMessageContent);
     botMessageGroup.appendChild(botMessageEl);
@@ -2932,7 +3136,7 @@ async function triggerEventAutoResponse(systemEventText) {
     if (botConfig.botBubbleColor) botMessageEl.style.background = botConfig.botBubbleColor;
     const botMessageContent = document.createElement('div');
     botMessageContent.className = 'message-content';
-    botMessageContent.innerHTML = '<span class="typing-cursor"></span>';
+    botMessageContent.innerHTML = '';
     botMessageEl.appendChild(botMessageContent);
     botMessageGroup.appendChild(botMessageEl);
     DOMElements.chatMessages.appendChild(botMessageGroup);
@@ -3089,7 +3293,6 @@ async function executeApiRequestLoop() {
     fetchController = new AbortController();
     toggleSendButtonState('stop', false);
 
-    showApiStatus(`🧠 chaka is thinking...`, -1);
 
     // ✅ FAILSAFE: Force cleanup after 120 seconds no matter what
     const failsafeTimer = setTimeout(() => {
@@ -3792,7 +3995,7 @@ async function sendMessage() {
     userMsgEl.dataset.messageId = tempMessageId;
     const userMsgContent = document.createElement('div');
     userMsgContent.className = 'message-content';
-    userMsgContent.innerHTML = marked.parse(text).trim();
+    userMsgContent.textContent = text;
     userMsgEl.appendChild(userMsgContent);
     userMessageGroup.appendChild(userMsgEl);
     DOMElements.chatMessages.appendChild(userMessageGroup);
@@ -3861,7 +4064,11 @@ async function sendMessage() {
         if (botConfig.botBubbleColor) botMessageEl.style.background = botConfig.botBubbleColor;
         const botMessageContent = document.createElement('div');
         botMessageContent.className = 'message-content';
-        botMessageContent.innerHTML = '<span class="typing-cursor"></span>';
+        botMessageContent.innerHTML = `
+            <div class="typing-indicator">
+                <div class="premium-loader"></div>
+            </div>
+        `;
         botMessageEl.appendChild(botMessageContent);
         botMessageGroup.appendChild(botMessageEl);
         DOMElements.chatMessages.appendChild(botMessageGroup);
@@ -4004,6 +4211,11 @@ function startNewChat() {
         state.messagesUnsub = null;
     }
 
+    // Stop generation if active
+    if (typeof stopGeneration === 'function') stopGeneration();
+    autoRetryState.isActive = false;
+    autoRetryState.stopRequested = false;
+
     // 2. Stop Audio
     stopCurrentAudio();
 
@@ -4016,21 +4228,25 @@ function startNewChat() {
     state.firstMessageSaved = false;
     state.titleGenerated = false;
 
-    // 5. Wipe DOM
+    // 5. Wipe DOM & instantly show welcome screen
     if (DOMElements.chatMessages) {
         DOMElements.chatMessages.innerHTML = '';
     }
+    document.getElementById('chat-container')?.classList.remove('is-chatting');
 
     // 6. Reset UI (Input, Files, Status)
+    if (DOMElements.messageInput) DOMElements.messageInput.value = '';
     resetFileInput();
     if (DOMElements.statusRow) DOMElements.statusRow.textContent = '';
-    toggleSendButtonState('send', false);
+    
+    // Explicitly reset the send button to microphone mode
+    toggleSendButtonState('mic', false);
+    checkSendButtonState();
 
     // 7. Remove "Active" class from sidebar items
     document.querySelectorAll('.session-item.active').forEach(el => el.classList.remove('active'));
 
     // 8. Start Listener for the NEW (empty) session
-    // Since the ID is brand new, this will trigger the "Welcome Screen" logic inside subscribeMessages
     subscribeMessages();
 
     // 9. Close mobile menus if open
@@ -4123,7 +4339,6 @@ function startWhisperRecording() {
                     if (!auth.currentUser) throw new Error("User not logged in");
                     const token = await auth.currentUser.getIdToken(false);
 
-                    showApiStatus("🧠 Transcribing...", -1);
 
                     const response = await fetch(`${APP_CONFIG.BACKEND_URL}/api/tools/whisper`, {
                         method: 'POST',
@@ -4145,13 +4360,13 @@ function startWhisperRecording() {
                 } finally {
                     showApiStatus("", 0);
                     isRecording = false; // Reset state
+                    DOMElements.liveModeBtn.classList.remove('recording-active');
                 }
             };
 
             mediaRecorder.start();
             isRecording = true;
-            DOMElements.sendBtn.classList.add('listening');
-            DOMElements.statusRow.textContent = "🎤 Listening (Whisper)...";
+            DOMElements.liveModeBtn.classList.add('recording-active');
 
         } catch (err) {
             isRecording = false;
@@ -4176,8 +4391,7 @@ function startGoogleSpeechFallback() {
         recognition.lang = 'en-US';
 
         recognition.onstart = () => {
-            DOMElements.sendBtn.classList.add('listening');
-            DOMElements.statusRow.textContent = "🎤 Listening (Google)...";
+            DOMElements.liveModeBtn.classList.add('recording-active');
         };
 
         recognition.onresult = (event) => {
@@ -4195,7 +4409,7 @@ function startGoogleSpeechFallback() {
         };
 
         recognition.onend = () => {
-            DOMElements.sendBtn.classList.remove('listening');
+            DOMElements.liveModeBtn.classList.remove('recording-active');
             DOMElements.statusRow.textContent = "";
             googleRecognition = null; // ✅ CRITICAL FIX: Reset the variable so we can click again
         };
@@ -4276,6 +4490,11 @@ async function handleVoiceInput() {
 
 // --- MAIN BUTTON LISTENER ---
 // --- MAIN BUTTON LISTENER ---
+DOMElements.liveModeBtn.addEventListener('click', () => {
+    initGlobalAudioContext();
+    handleVoiceInput();
+});
+
 DOMElements.sendBtn.addEventListener('click', () => {
     initGlobalAudioContext(); // Ensure AudioContext is unlocked immediately on user gesture
 
@@ -4290,7 +4509,7 @@ DOMElements.sendBtn.addEventListener('click', () => {
     if (hasText || hasFiles) {
         sendMessage();
     } else {
-        handleVoiceInput();
+        if (typeof LiveMode !== 'undefined') LiveMode.open();
     }
 });
 
@@ -4585,6 +4804,8 @@ const init = () => {
                 // ✅ [NEW] Close user settings popup
                 DOMElements.userSettingsPopup.classList.remove('show');
                 DOMElements.userSettingsBtn.classList.remove('active');
+                DOMElements.menuBtn.classList.remove('active');
+                DOMElements.userSettingsBtn.classList.remove('active');
 
                 DOMElements.overlay.classList.remove('show');
                 DOMElements.welcomeTourModal.classList.add('hidden');
@@ -4598,6 +4819,7 @@ const init = () => {
             DOMElements.menuBtn.addEventListener('click', () => {
                 DOMElements.sidebar.classList.toggle('open');
                 DOMElements.overlay.classList.toggle('show');
+                DOMElements.menuBtn.classList.toggle('active');
 
                 // Ensure popups are closed when opening sidebar
                 DOMElements.composerActionsPopup.classList.remove('show');
@@ -4735,11 +4957,16 @@ const init = () => {
                 const isOpening = !DOMElements.composerActionsBtn.classList.contains('active');
                 DOMElements.composerActionsPopup.classList.toggle('show', isOpening);
                 DOMElements.composerActionsBtn.classList.toggle('active', isOpening);
-                DOMElements.overlay.classList.toggle('show', isOpening);
 
                 // ✅ [NEW] Close user settings popup
                 DOMElements.userSettingsPopup.classList.remove('show');
                 DOMElements.userSettingsBtn.classList.remove('active');
+                
+                const eduPopup = document.getElementById('edu-tools-popup');
+                if (eduPopup) eduPopup.classList.remove('show');
+                
+                const customModelDropdown = document.getElementById('custom-model-dropdown');
+                if (customModelDropdown) customModelDropdown.classList.add('hidden');
             });
 
 
@@ -4987,3 +5214,91 @@ const init = () => {
 };
 
 init();
+
+// --- ✅ [NEW] INIT CUSTOM SELECTS ---
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('select.popup-select, select#live-voice-select, select#voiceSelect').forEach(select => {
+        if (window.initCustomSelect) window.initCustomSelect(select);
+    });
+});
+
+// --- CUSTOM MODEL DROPDOWN LOGIC ---
+document.addEventListener('DOMContentLoaded', () => {
+    const chatTitleContainer = document.getElementById('chat-title-container');
+    const customModelDropdown = document.getElementById('custom-model-dropdown');
+    const chatTitle = document.getElementById('chat-title');
+    
+    if (chatTitleContainer && customModelDropdown) {
+        chatTitleContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+            customModelDropdown.classList.toggle('hidden');
+            
+            const composerPopup = document.getElementById('composer-actions-popup');
+            if (composerPopup) {
+                composerPopup.classList.remove('show');
+                const composerBtn = document.getElementById('composer-actions-btn');
+                if (composerBtn) composerBtn.classList.remove('active');
+            }
+            
+            const eduPopup = document.getElementById('edu-tools-popup');
+            if (eduPopup) eduPopup.classList.remove('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!customModelDropdown.contains(e.target) && !chatTitleContainer.contains(e.target)) {
+                customModelDropdown.classList.add('hidden');
+            }
+        });
+
+        const modelOptions = customModelDropdown.querySelectorAll('.model-option[data-value]');
+        modelOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                modelOptions.forEach(o => o.classList.remove('selected'));
+                modelOptions.forEach(o => {
+                    const check = o.querySelector('.check-icon');
+                    if(check) check.innerHTML = '';
+                });
+                
+                opt.classList.add('selected');
+                const check = opt.querySelector('.check-icon');
+                if (check) check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#e3e3e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                
+                // Title remains static as 'Chaka'
+                
+                // Link to real select
+                const select = document.getElementById('model-select');
+                if (select) {
+                    select.value = opt.dataset.value;
+                    select.dispatchEvent(new Event('change'));
+                }
+                customModelDropdown.classList.add('hidden');
+            });
+        });
+
+    }
+
+    // Random input placeholder
+    const inputPlaceholders = [
+        "Ask Chaka anything...",
+        "Need help with a task?",
+        "Let's brainstorm...",
+        "Summarize a document...",
+        "Write some code...",
+        "What are we exploring?",
+        "Analyze this data...",
+        "Draft an email...",
+        "Learn something new..."
+    ];
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        // Set initial random placeholder
+        messageInput.placeholder = inputPlaceholders[Math.floor(Math.random() * inputPlaceholders.length)];
+        
+        // Rotate every 8 seconds, but only if empty and not focused
+        setInterval(() => {
+            if (!messageInput.value && document.activeElement !== messageInput) {
+                messageInput.placeholder = inputPlaceholders[Math.floor(Math.random() * inputPlaceholders.length)];
+            }
+        }, 8000);
+    }
+});

@@ -449,7 +449,7 @@
     msg.className = 'message bot';
     const content = document.createElement('div');
     content.className = 'message-content';
-    content.innerHTML = '<span class="typing-cursor" style="display:inline-block;width:8px;height:16px;background:currentColor;animation:blink 1s step-end infinite;"></span>';
+    content.innerHTML = '';
     msg.appendChild(content);
     group.appendChild(msg);
     chatMessages.appendChild(group);
@@ -484,7 +484,7 @@
     let accumulated = '';
     let buffer = '';
 
-    const cursorHTML = '<span class="typing-cursor" style="display:inline-block;width:8px;height:16px;background:currentColor;margin-left:2px;animation:blink 1s step-end infinite;vertical-align:middle;"></span>';
+    const cursorHTML = '';
 
     while (true) {
       const { done, value } = await reader.read();

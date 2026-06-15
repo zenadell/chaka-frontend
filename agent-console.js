@@ -788,7 +788,7 @@
         </div>
         <div class="ck-timeline"><div class="ck-timeline-inner"></div></div>
         <div class="ck-foot">
-          <span class="ck-model">Llama 3.3 · 70B</span>
+          <span class="ck-model">Initializing...</span>
           <span class="ck-elapsed">0s</span>
         </div>
       </div>
@@ -1122,6 +1122,13 @@
 
         pill.classList.remove('show');
         cleanupPill();
+      },
+
+      setModel(modelName) {
+        const modelEl = card.querySelector('.ck-model');
+        if (modelEl) {
+          modelEl.textContent = String(modelName || 'gemini-2.5-flash');
+        }
       },
 
       placeholder(text) {
