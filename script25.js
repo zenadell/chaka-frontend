@@ -1420,9 +1420,14 @@ const applyTheme = (themeSetting, event = null) => {
         }
     };
 
-    if (event && document.startViewTransition) {
-        const x = event.clientX;
-        const y = event.clientY;
+    const isMobileDevice = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
+    if (!isMobileDevice && event && document.startViewTransition) {
+        let x = event.clientX;
+        let y = event.clientY;
+        if (x === undefined || y === undefined) {
+            x = window.innerWidth / 2;
+            y = window.innerHeight / 2;
+        }
         const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
 
         const transition = document.startViewTransition(() => {
@@ -1495,11 +1500,8 @@ if (DOMElements.themeSegments) {
                 if (DOMElements.overlay) {
                     DOMElements.overlay.classList.remove('show');
                 }
-                const syntheticEvent = { clientX: e.clientX, clientY: e.clientY };
-                setTimeout(() => {
-                    if (DOMElements.menuBtn) DOMElements.menuBtn.classList.remove('active');
-                    applyTheme(state.currentTheme, syntheticEvent);
-                }, 350);
+                // Apply instantly, no timeout needed without view transition
+                applyTheme(state.currentTheme, e);
             } else {
                 applyTheme(state.currentTheme, e);
             }
@@ -4283,6 +4285,7 @@ function loadSessionById(id) {
     if (window.innerWidth <= 900) {
         DOMElements.sidebar.classList.remove('open');
         DOMElements.overlay.classList.remove('show');
+        if (DOMElements.menuBtn) DOMElements.menuBtn.classList.remove('active');
     }
 }
 

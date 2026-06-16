@@ -835,7 +835,7 @@ button {
   padding: 10px 16px !important;
   border-radius: 20px !important;
   font-size: 15px;
-  font-weight: 300;
+  font-weight: 500;
   line-height: 1.4;
   animation: popInUser 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   transform-origin: bottom right;
@@ -847,7 +847,7 @@ button {
 .message.user .message-content {
   line-height: 1.5;
   font-size: 16px;
-  font-weight: 300;
+  font-weight: 500;
   white-space: pre-wrap;
 }
 .message.user .message-content p {
@@ -1715,31 +1715,66 @@ button {
 }
 
 #personality-list-title {
-  font-size: 0.8rem;
+  display: block;
+}
+
+.popup-section-title {
+  display: block;
+  padding: 4px 16px 8px 16px;
+  margin: 0;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-secondary);
-  padding: 0 0.5rem 0.5rem 0.5rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 
 #personality-list {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  max-height: 180px;
-  overflow-y: auto;
+  flex-direction: row;
+  gap: 0.5rem;
+  padding: 0 16px 12px 16px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+#personality-list::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
 .personality-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  padding: 10px 12px;
+  gap: 0.4rem;
+  padding: 8px 4px;
   border-radius: 12px;
   cursor: pointer;
   transition: background-color var(--transition-fast);
+  width: 80px;
+  flex-shrink: 0;
+  text-align: center;
 }
+
+.personality-item .personality-avatar {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+}
+
+.personality-item .personality-name {
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.personality-item .personality-description {
+  display: none; /* Hide description in grid view to save space */
+}
+
+
 
 .personality-item:hover {
   background-color: var(--surface);
@@ -1799,7 +1834,8 @@ button {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: 100%;
+  width: calc(100% - 32px);
+  margin: 0 16px 12px 16px;
   padding: 10px 12px;
   border-radius: 12px;
   transition: background-color var(--transition-fast);
@@ -3776,7 +3812,7 @@ button {
         background: transparent;
         border-radius: 0;
         font-size: 16px;
-        font-weight: 300;
+        font-weight: 500;
         line-height: 1.5;
         font-family: 'Outfit', -apple-system, sans-serif;
     }
@@ -3788,7 +3824,7 @@ button {
         border-radius: 20px;
         max-width: 85%;
         font-size: 15px;
-        font-weight: 300;
+        font-weight: 500;
         line-height: 1.4;
         animation: popInUser 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
         transform-origin: bottom right;
@@ -3891,7 +3927,7 @@ button {
         background: transparent;
         border: none;
         color: #ffffff;
-        font-size: 16px;
+        font-size: 15px;
         margin: 0 12px;
         font-family: 'Outfit', sans-serif;
         resize: none;

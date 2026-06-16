@@ -180,15 +180,9 @@ When the user asks for study help, you have these enhanced capabilities:
   function buildToolbarHTML() {
     return `
       <div id="edu-tools-wrapper" class="edu-tools-wrapper ${isActive ? 'visible' : ''}">
-        <button id="edu-tools-toggle" class="icon-btn edu-icon-btn" title="Study Tools">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-            <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-          </svg>
-        </button>
-        <div id="edu-tools-popup" class="edu-tools-popup">
-          <div class="edu-popup-header">Study Tools</div>
-          <div class="edu-popup-grid">
+        <div class="popup-divider"></div>
+        <div class="popup-section-title">Study Tools</div>
+        <div class="edu-popup-grid" style="padding: 0 16px 12px 16px;">
             <button class="edu-tool-btn color-notes" data-tool="notes">
               <div class="edu-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
               <span>Notes</span>
@@ -214,7 +208,6 @@ When the user asks for study help, you have these enhanced capabilities:
               <span>ELI10</span>
             </button>
           </div>
-        </div>
       </div>`;
   }
 
@@ -416,44 +409,18 @@ When the user asks for study help, you have these enhanced capabilities:
         });
       });
     }
+    // 2. Insert tools into composer actions popup
+    const composerPopup = document.getElementById('composer-actions-popup');
+    if (composerPopup) {
+      composerPopup.insertAdjacentHTML('beforeend', buildToolbarHTML());
 
-    // 2. Insert tools into left-actions
-    const leftActions = document.querySelector('.left-actions');
-    if (leftActions) {
-      leftActions.insertAdjacentHTML('beforeend', buildToolbarHTML());
-
-      // Toggle popup
-      const toggleBtn = document.getElementById('edu-tools-toggle');
-      const popup = document.getElementById('edu-tools-popup');
-      
-      if (toggleBtn && popup) {
-        toggleBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          popup.classList.toggle('show');
-          
-          // close composer popup if open
-          const composerPopup = document.getElementById('composer-actions-popup');
-          if (composerPopup && composerPopup.classList.contains('show')) {
-            composerPopup.classList.remove('show');
-            document.getElementById('composer-actions-btn')?.classList.remove('active');
-          }
-          
-          const customModelDropdown = document.getElementById('custom-model-dropdown');
-          if (customModelDropdown) customModelDropdown.classList.add('hidden');
-        });
-
-        // Close on click outside
-        document.addEventListener('click', (e) => {
-          if (!popup.contains(e.target) && e.target !== toggleBtn) {
-            popup.classList.remove('show');
-          }
-        });
-      }
-
-      // Toolbar click handlers
+      // Close popup when tool clicked
       document.querySelectorAll('.edu-tool-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          if(popup) popup.classList.remove('show');
+          composerPopup.classList.remove('show');
+          const toggleBtn = document.getElementById('composer-actions-btn');
+          if (toggleBtn) toggleBtn.classList.remove('active');
+          
           const tool = btn.dataset.tool;
           if (tool === 'eli10') {
             handleELI10();
@@ -463,7 +430,6 @@ When the user asks for study help, you have these enhanced capabilities:
         });
       });
     }
-
     // 3. Apply initial state
     renderUI();
 
