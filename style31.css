@@ -3634,7 +3634,8 @@ button {
     #chat-container {
         width: 100%;
         max-width: 100%;
-        height: 100vh;
+        height: 100vh; /* Fallback for older browsers */
+        height: 100dvh; /* Fixes bottom cut-off on mobile browsers (Chrome/Safari) */
         display: flex;
         flex-direction: column;
         position: relative;
