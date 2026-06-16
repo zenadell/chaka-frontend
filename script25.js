@@ -1497,6 +1497,7 @@ if (DOMElements.themeSegments) {
                 }
                 const syntheticEvent = { clientX: e.clientX, clientY: e.clientY };
                 setTimeout(() => {
+                    if (DOMElements.menuBtn) DOMElements.menuBtn.classList.remove('active');
                     applyTheme(state.currentTheme, syntheticEvent);
                 }, 350);
             } else {
@@ -5292,11 +5293,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('message-input');
     if (messageInput) {
         // Set initial random placeholder
-        messageInput.placeholder = inputPlaceholders[Math.floor(Math.random() * inputPlaceholders.length)];
+        if (!document.body.classList.contains('edu-mode-active')) {
+            messageInput.placeholder = inputPlaceholders[Math.floor(Math.random() * inputPlaceholders.length)];
+        }
         
         // Rotate every 8 seconds, but only if empty and not focused
         setInterval(() => {
-            if (!messageInput.value && document.activeElement !== messageInput) {
+            if (!messageInput.value && document.activeElement !== messageInput && !document.body.classList.contains('edu-mode-active')) {
                 messageInput.placeholder = inputPlaceholders[Math.floor(Math.random() * inputPlaceholders.length)];
             }
         }, 8000);

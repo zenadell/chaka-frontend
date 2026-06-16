@@ -19,7 +19,7 @@
   --shadow-light: 0 8px 32px rgba(0, 0, 0, 0.08);
   --shadow-input-light: 0 -8px 24px rgba(0, 0, 0, 0.08);
   --bot-bubble-light: #f0f2f5;
-  --user-bubble-light: #e5e7eb;
+  --user-bubble-light: #f0f4f9;
   /* Dark Theme */
   --accent-dark: #f97316;
   --bg-dark: #161514;
@@ -3649,14 +3649,30 @@ button {
     #chat-header {
         display: flex;
         align-items: center;
-        padding: 24px 20px;
-        position: relative;
+        padding: 12px 20px; /* Reduced from 24px */
+        position: absolute;
+        top: 0; left: 0; right: 0;
         z-index: 10;
         background: transparent !important;
         border-bottom: none !important;
         box-shadow: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
+    }
+
+    /* The Gemini-style blur + fade effect */
+    #chat-header::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 80px; /* Extends below the buttons */
+        background: linear-gradient(to bottom, var(--bg) 30%, transparent 100%);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        z-index: -1;
+        pointer-events: none;
     }
 
     #chat-header .icon-btn {
@@ -3731,11 +3747,11 @@ button {
     /* Chat Area */
     .chat-area {
         position: absolute;
-        top: 76px;
+        top: 0; /* Changed from 76px so it scrolls under the header */
         left: 0;
         right: 0;
         bottom: 104px;
-        padding: 0 20px;
+        padding: 60px 20px 0 20px; /* Replaces top offset, allowing under-scroll */
         overflow-y: auto;
         display: flex;
         flex-direction: column;
