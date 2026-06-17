@@ -1420,14 +1420,19 @@ const applyTheme = (themeSetting, event = null) => {
         }
     };
 
-    const isMobileDevice = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
-    if (!isMobileDevice && event && document.startViewTransition) {
+    if (event && document.startViewTransition) {
         let x = event.clientX;
         let y = event.clientY;
         if (x === undefined || y === undefined) {
             x = window.innerWidth / 2;
             y = window.innerHeight / 2;
         }
+
+        if (DOMElements.menuBtn) {
+            DOMElements.menuBtn.classList.remove('active');
+            void DOMElements.menuBtn.offsetWidth; // force reflow
+        }
+
         const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
 
         const transition = document.startViewTransition(() => {
@@ -1436,6 +1441,49 @@ const applyTheme = (themeSetting, event = null) => {
 
         transition.ready.then(() => {
             const size = endRadius * 2.5; // scale up to cover screen
+            
+            // Create a dialog to host the Aurora.
+            // Dialogs opened with showModal() during a View Transition stack ABOVE the View Transition Top Layer!
+            const dialog = document.createElement('dialog');
+            dialog.className = 'theme-aurora-dialog';
+            
+            const waveContainer = document.createElement('div');
+            waveContainer.className = 'theme-aurora-wrap';
+            
+            const aurora1 = document.createElement('div');
+            aurora1.className = 'theme-aurora';
+            aurora1.style.left = `${x}px`;
+            aurora1.style.top = `${y}px`;
+            
+            const aurora2 = document.createElement('div');
+            aurora2.className = 'theme-aurora theme-aurora--secondary';
+            aurora2.style.left = `${x}px`;
+            aurora2.style.top = `${y}px`;
+            
+            waveContainer.appendChild(aurora1);
+            waveContainer.appendChild(aurora2);
+            
+            const ring = document.createElement('div');
+            ring.className = 'theme-ring';
+            ring.style.left = `${x}px`;
+            ring.style.top = `${y}px`;
+            
+            dialog.appendChild(waveContainer);
+            dialog.appendChild(ring);
+            document.body.appendChild(dialog);
+            
+            // Show modal so it goes to the Top Layer
+            dialog.showModal();
+
+            // Clean them up after the animation completes
+            setTimeout(() => {
+                if (dialog) {
+                    dialog.close();
+                    dialog.remove();
+                }
+            }, 2000);
+
+            // 2. Animate the actual View Transition (the circular wipe)
             document.documentElement.animate(
                 {
                     WebkitMaskImage: [
@@ -1470,8 +1518,8 @@ const applyTheme = (themeSetting, event = null) => {
                     ]
                 },
                 {
-                    duration: 900,
-                    easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+                    duration: 1600, // Matched with Aurora Sweep duration
+                    easing: 'cubic-bezier(0.16, 1, 0.3, 1)', // Apple easing
                     pseudoElement: '::view-transition-new(root)'
                 }
             );
@@ -3973,6 +4021,50 @@ async function sendMessage() {
 
     // 2. Generate ID & Render Optimistic Bubble
     const tempMessageId = crypto.randomUUID();
+
+    const isFirstMessage = DOMElements.chatMessages.children.length === 0;
+    if (isFirstMessage) {
+        const rect = DOMElements.messageInput.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        
+        const dialog = document.createElement('dialog');
+        dialog.className = 'theme-aurora-dialog';
+        
+        const waveContainer = document.createElement('div');
+        waveContainer.className = 'message-aurora-wrap';
+        
+        const aurora1 = document.createElement('div');
+        aurora1.className = 'message-aurora';
+        aurora1.style.left = `${x}px`;
+        aurora1.style.top = `${y}px`;
+        
+        const aurora2 = document.createElement('div');
+        aurora2.className = 'message-aurora message-aurora--secondary';
+        aurora2.style.left = `${x}px`;
+        aurora2.style.top = `${y}px`;
+        
+        waveContainer.appendChild(aurora1);
+        waveContainer.appendChild(aurora2);
+        
+        const ring = document.createElement('div');
+        ring.className = 'message-ring';
+        ring.style.left = `${x}px`;
+        ring.style.top = `${y}px`;
+        
+        dialog.appendChild(waveContainer);
+        dialog.appendChild(ring);
+        document.body.appendChild(dialog);
+        
+        dialog.showModal();
+
+        setTimeout(() => {
+            if (dialog) {
+                dialog.close();
+                dialog.remove();
+            }
+        }, 2000);
+    }
 
     // --- NEW: Generate Image Previews ---
     let imagesHtml = '';

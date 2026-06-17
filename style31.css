@@ -4430,3 +4430,162 @@ button {
   z-index: 9999;
   filter: drop-shadow(0 0 60px rgba(255, 255, 255, 1));
 }
+
+/* ===================== THEME APPLE WAVE ===================== */
+.theme-aurora-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  overflow: hidden;
+  pointer-events: none;
+  max-width: none;
+  max-height: none;
+  z-index: 999999;
+}
+.theme-aurora-dialog::backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+
+.theme-aurora-wrap {
+  position: absolute;
+  inset: 0;
+  filter: blur(40px) saturate(1.4);
+  /* Removed mix-blend-mode: screen so it shows on white backgrounds too */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.theme-aurora {
+  position: absolute;
+  width: 200vmax;
+  height: 200vmax;
+  transform: translate(-50%, -50%) scale(0.02);
+  border-radius: 50%;
+  opacity: 0;
+  background: conic-gradient(from 90deg at 50% 50%,
+          rgba(255, 255, 255, 0.05),
+          rgba(255, 255, 255, 0.7),
+          rgba(220, 235, 255, 0.4),
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0.8),
+          rgba(255, 255, 255, 0.05));
+  animation: theme-aurora-sweep 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.theme-aurora--secondary {
+  background: conic-gradient(from 270deg at 50% 50%,
+          rgba(220, 235, 255, 0.3),
+          rgba(255, 255, 255, 0.6),
+          rgba(255, 255, 255, 0.05),
+          rgba(255, 255, 255, 0.8),
+          rgba(220, 235, 255, 0.2),
+          rgba(220, 235, 255, 0.3));
+  animation: theme-aurora-sweep-2 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: 0.12s;
+}
+
+@keyframes theme-aurora-sweep {
+  0% { transform: translate(-50%, -50%) scale(0.02); opacity: 0; }
+  12% { opacity: 0.95; }
+  55% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.85; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+@keyframes theme-aurora-sweep-2 {
+  0% { transform: translate(-50%, -50%) scale(0.02) rotate(0deg); opacity: 0; }
+  15% { opacity: 0.8; }
+  60% { transform: translate(-50%, -50%) scale(0.7) rotate(15deg); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) scale(1.6) rotate(25deg); opacity: 0; }
+}
+
+.theme-ring {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 255, 255, 0.0);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  animation: theme-ring-pop 1.2s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes theme-ring-pop {
+  0% { transform: translate(-50%, -50%) scale(0); border-color: rgba(255, 255, 255, 0.0); opacity: 1; }
+  10% { border-color: rgba(255, 255, 255, 0.55); }
+  100% { transform: translate(-50%, -50%) scale(60); border-color: rgba(255, 255, 255, 0); opacity: 0; }
+}
+
+/* ===================== MESSAGE WAVE (TEXTAREA) ===================== */
+.message-aurora-wrap {
+  position: absolute;
+  inset: 0;
+  filter: blur(40px) saturate(1.4);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.message-aurora {
+  position: absolute;
+  width: 200vmax;
+  height: 200vmax;
+  transform: translate(-50%, -50%) scale(0.02);
+  border-radius: 50%;
+  opacity: 0;
+  background: conic-gradient(from 90deg at 50% 50%,
+          rgba(42, 26, 20, 0.4),
+          rgba(255, 154, 90, 0.6),
+          rgba(255, 197, 147, 0.5),
+          rgba(130, 178, 184, 0.4),
+          rgba(255, 154, 90, 0.5),
+          rgba(42, 26, 20, 0.4));
+  animation: message-aurora-sweep 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.message-aurora--secondary {
+  background: conic-gradient(from 270deg at 50% 50%,
+          rgba(130, 178, 184, 0.3),
+          rgba(255, 197, 147, 0.5),
+          rgba(42, 26, 20, 0.3),
+          rgba(255, 154, 90, 0.6),
+          rgba(130, 178, 184, 0.2),
+          rgba(130, 178, 184, 0.3));
+  animation: message-aurora-sweep-2 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: 0.12s;
+}
+
+@keyframes message-aurora-sweep {
+  0% { transform: translate(-50%, -50%) scale(0.02); opacity: 0; }
+  12% { opacity: 0.6; }
+  55% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+@keyframes message-aurora-sweep-2 {
+  0% { transform: translate(-50%, -50%) scale(0.02) rotate(0deg); opacity: 0; }
+  15% { opacity: 0.5; }
+  60% { transform: translate(-50%, -50%) scale(0.7) rotate(15deg); opacity: 0.4; }
+  100% { transform: translate(-50%, -50%) scale(1.6) rotate(25deg); opacity: 0; }
+}
+
+.message-ring {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 197, 147, 0.0);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  animation: message-ring-pop 1.2s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes message-ring-pop {
+  0% { transform: translate(-50%, -50%) scale(0); border-color: rgba(255, 197, 147, 0.0); opacity: 1; }
+  10% { border-color: rgba(255, 197, 147, 0.35); }
+  100% { transform: translate(-50%, -50%) scale(60); border-color: rgba(255, 197, 147, 0); opacity: 0; }
+}
