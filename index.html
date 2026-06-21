@@ -152,34 +152,42 @@
         </div>
 
         <div id="custom-model-dropdown" class="hidden">
-           <div class="model-option selected" data-value="gemini-2.5-flash">
+           <div class="model-option selected" data-value="gemini-3.1-flash-lite">
                <div class="check-icon">
                    <svg viewBox="0 0 24 24" fill="none" stroke="#e3e3e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                </div>
                <div class="model-info">
-                   <div class="model-name">chaka Flash <span class="badge">Fastest</span></div>
+                   <div class="model-name">chaka Flash <span class="badge">Default</span></div>
                    <div class="model-desc">Fastest answers</div>
+               </div>
+           </div>
+           <div class="model-option" data-value="gemini-2.5-flash">
+               <div class="check-icon"></div>
+               <div class="model-info">
+                   <div class="model-name">chaka Plus <span class="badge badge-images">+Images</span></div>
+                   <div class="model-desc">Smart answers + images</div>
                </div>
            </div>
            <div class="model-option" data-value="gemini-2.5-pro">
                <div class="check-icon"></div>
                <div class="model-info">
-                   <div class="model-name">chaka 2.5 Pro</div>
-                   <div class="model-desc">All-around help</div>
+                   <div class="model-name">chaka Pro</div>
+                   <div class="model-desc">Complex reasoning</div>
                </div>
            </div>
-           <div class="model-option" data-value="gemini-3-pro-preview">
+           <div class="dropdown-divider"></div>
+           <div class="model-option disabled" data-value="gemini-3.1-pro-preview">
                <div class="check-icon"></div>
                <div class="model-info">
-                   <div class="model-name">chaka 3 Pro <span class="badge">Preview</span></div>
-                   <div class="model-desc">Advanced logic</div>
-               </div>
-           </div>
-           <div class="model-option" data-value="gemini-3-pro-preview-code">
-               <div class="check-icon"></div>
-               <div class="model-info">
-                   <div class="model-name">chaka 3 Pro Code <span class="badge">Preview</span></div>
+                   <div class="model-name">chaka Code <span class="badge badge-disabled">Disabled</span></div>
                    <div class="model-desc">Specialized for code</div>
+               </div>
+           </div>
+           <div class="model-option disabled" data-value="deepseek-reasoner">
+               <div class="check-icon"></div>
+               <div class="model-info">
+                   <div class="model-name">chaka Code Pro <span class="badge badge-disabled">Disabled</span></div>
+                   <div class="model-desc">Advanced code generation</div>
                </div>
            </div>
         </div>
@@ -235,10 +243,11 @@
 
             <div id="composer-actions-popup">
               <select id="model-select" style="display: none;">
-                <option value="gemini-2.5-flash">chaka Flash (Fastest)</option>
-                <option value="gemini-2.5-pro">chaka 2.5 Pro</option>
-                <option value="gemini-3-pro-preview">chaka 3 Pro (Preview)</option>
-                <option value="gemini-3-pro-preview-code">chaka 3 Pro Code (Preview - for code)</option>
+                <option value="gemini-3.1-flash-lite" selected>chaka Flash (Default)</option>
+                <option value="gemini-2.5-flash">chaka Plus (+Images)</option>
+                <option value="gemini-2.5-pro">chaka Pro</option>
+                <option value="gemini-3.1-pro-preview" disabled>chaka Code (Disabled)</option>
+                <option value="deepseek-reasoner" disabled>chaka Code Pro (Disabled)</option>
               </select>
               <div id="personality-list-title" class="popup-section-title">Chat Personas</div>
               <div id="personality-list"></div>

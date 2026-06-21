@@ -799,6 +799,10 @@
             const id = (crypto.randomUUID && crypto.randomUUID()) || ('msg_' + Date.now());
             await window.tursoClient.saveChat(state.userId, state.sessionId, id, 'bot',
               `🤖 **Autonomous task complete**\n\n${doneMessage}`);
+            
+            // Remove the live card so it's replaced by the newly saved static card
+            const liveCards = document.querySelectorAll('.ck-card.autonomous-card:not(.static-card)');
+            liveCards.forEach(c => c.remove());
           } catch {}
         }
       }

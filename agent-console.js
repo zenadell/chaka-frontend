@@ -125,14 +125,10 @@
 
         position: relative;
         max-width: 540px;
-        margin: 12px 0;
-        /* Critical: chat-messages is a flex column. Without flex-shrink: 0
-           the parent layout squishes our card vertically when other
-           messages fill the column, clipping the viewport/timeline/footer.
-           This was the "card looks cut as session grows" bug. */
+        margin: 20px 0;
+        padding: 0;
         flex-shrink: 0;
         align-self: flex-start;
-        /* Ensure scrollIntoView leaves room above the composer */
         scroll-margin-top: 20px;
         scroll-margin-bottom: 140px;
         border-radius: 18px;
@@ -741,7 +737,7 @@
     if (!container) { console.warn('[chakaAgentConsole] no chat container'); return null; }
 
     const card = document.createElement('div');
-    card.className = 'ck-card message-group bot';
+    card.className = 'ck-card autonomous-card';
     card.tabIndex = -1;
     card.setAttribute('role', 'region');
     card.setAttribute('aria-label', 'Autonomous agent task progress');

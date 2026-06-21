@@ -4034,6 +4034,26 @@ button {
     height: 16px;
     color: var(--text-secondary);
 }
+#custom-model-dropdown .model-option.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+#custom-model-dropdown .badge-images {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.25);
+    color: #60a5fa;
+}
+#custom-model-dropdown .badge-new {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.25);
+    color: #4ade80;
+}
+#custom-model-dropdown .badge-disabled {
+    background: rgba(161, 161, 170, 0.12);
+    border-color: rgba(161, 161, 170, 0.25);
+    color: #a1a1aa;
+}
 
 /* Send Button Active Mode (Right Arrow, Bright Blue) */
 #send-btn.send-mode-active {

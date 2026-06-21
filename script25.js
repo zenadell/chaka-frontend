@@ -2470,9 +2470,31 @@ async function subscribeMessages() {
             const imageRegex = /!\[Image for prompt: "([^"]+)"\]\(([^)]+)\)/g;
 
             if (msg.sender === 'bot') {
-                processedText = processedText.replace(placeholderRegex, () => `<div class="image-placeholder"><div class="spinner"></div><p>Generating image...</p></div>`);
-                processedText = processedText.replace(imageRegex, (m, p, url) => `<a href="${url}" target="_blank"><img src="${url}" class="message-image-attachment"></a>`);
-                content.innerHTML += marked.parse(processedText);
+                if (processedText.includes('🤖 **Autonomous task complete**')) {
+                    const doneMessage = processedText.replace('🤖 **Autonomous task complete**\\n\\n', '').trim();
+                    content.innerHTML = `
+                      <div class="ck-card autonomous-card static-card" style="margin: 0; max-width: 540px; border-radius: 18px; overflow: hidden; background: linear-gradient(180deg, rgba(20, 23, 30, 0.86) 0%, rgba(11, 13, 18, 0.78) 100%); border: 1px solid rgba(255, 255, 255, 0.07); box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.3); color: rgba(245, 247, 250, 0.96); font-family: Inter, system-ui, sans-serif;">
+                        <div class="ck-head" style="display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.07);">
+                          <div class="ck-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 12px rgba(52, 211, 153, 0.45); flex-shrink: 0;"></div>
+                          <div class="ck-title-block" style="flex: 1; min-width: 0;">
+                            <div class="ck-title" style="font-size: 13.5px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.15; margin-bottom: 2px;">Autonomous Agent</div>
+                            <div class="ck-subtitle" style="font-size: 11px; font-weight: 450; color: rgba(245, 247, 250, 0.62); font-family: 'JetBrains Mono', ui-monospace, monospace;">Task complete</div>
+                          </div>
+                        </div>
+                        <div class="ck-body" style="padding: 16px;">
+                           <div class="ck-task" style="font-size: 13.5px; line-height: 1.5; color: rgba(245, 247, 250, 0.96);">${marked.parse(doneMessage)}</div>
+                        </div>
+                      </div>
+                    `;
+                    el.style.background = 'transparent';
+                    el.style.border = 'none';
+                    el.style.padding = '0';
+                    el.style.boxShadow = 'none';
+                } else {
+                    processedText = processedText.replace(placeholderRegex, () => `<div class="image-placeholder"><div class="spinner"></div><p>Generating image...</p></div>`);
+                    processedText = processedText.replace(imageRegex, (m, p, url) => `<a href="${url}" target="_blank"><img src="${url}" class="message-image-attachment"></a>`);
+                    content.innerHTML += marked.parse(processedText);
+                }
             } else {
                 content.textContent = processedText;
             }
@@ -3163,16 +3185,15 @@ async function triggerEventAutoResponse(systemEventText) {
     await window.tursoClient.saveChat(state.userId, state.sessionId, crypto.randomUUID(), 'user', systemEventText, null, null, true);
 
     // 2. Prepare request payload
-    const uiModelValue = document.getElementById('model-select')?.value || "gemini-2.5-flash";
+    const uiModelValue = document.getElementById('model-select')?.value || "gemini-3.1-flash-lite";
     const MODEL_UI_TO_BACKEND = {
+        'gemini-3.1-flash-lite': 'gemini-3.1-flash-lite',
         'gemini-2.5-flash': 'gemini-2.5-flash',
         'gemini-2.5-pro': 'gemini-2.5-pro',
-        'gemini-2.5-pro-code': 'gemini-2.5-pro-code',
-        'gemini-3-pro-preview': 'gemini-3-pro-preview',
-        'gemini-3-pro-preview-code': 'gemini-3-pro-preview-code',
-        'gemini-3-pro-code': 'gemini-3-pro-preview-code'
+        'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
+        'deepseek-reasoner': 'deepseek-reasoner'
     };
-    const selectedModel = MODEL_UI_TO_BACKEND[uiModelValue] || uiModelValue || 'gemini-2.5-flash';
+    const selectedModel = MODEL_UI_TO_BACKEND[uiModelValue] || uiModelValue || 'gemini-3.1-flash-lite';
 
     autoRetryState.requestPayload = {
         model: selectedModel,
@@ -3795,11 +3816,15 @@ async function executeApiRequestLoop() {
         autoPlayTts(finalAccumulatedReply);
     }
 
-    // ✅ Auto-generate chat title after first bot response
-    if (!state.titleGenerated && autoRetryState.requestPayload?.contents?.length > 0) {
-        const userMsg = autoRetryState.requestPayload.contents.find(c => c.role === 'user');
-        const userText = userMsg?.parts?.find(p => p.text)?.text || '';
-        autoGenerateChatTitle(userText, finalAccumulatedReply || '').catch(() => { });
+    // ✅ Auto-generate chat title after second user message to capture true intent
+    if (!state.titleGenerated) {
+        const userMessageElements = document.querySelectorAll('#chat-messages .message.user .message-content');
+        // We wait for at least 2 user messages so we can skip casual "hi" greetings
+        if (userMessageElements.length >= 2) {
+            // Combine the first two messages to give the model full context
+            const userText = Array.from(userMessageElements).slice(0, 2).map(el => el.textContent.trim()).join('\n\n');
+            autoGenerateChatTitle(userText, finalAccumulatedReply || '').catch(() => { });
+        }
     }
 
     clearTimeout(failsafeTimer);
@@ -4171,18 +4196,16 @@ async function sendMessage() {
 
         // 6. Trigger AI
         // Frontend -> backend model mapping: UI may expose friendly keys or aliases; normalize here
-        const uiModelValue = document.getElementById('model-select')?.value || "gemini-2.5-flash";
+        const uiModelValue = document.getElementById('model-select')?.value || "gemini-3.1-flash-lite";
         const MODEL_UI_TO_BACKEND = {
+            'gemini-3.1-flash-lite': 'gemini-3.1-flash-lite',
             'gemini-2.5-flash': 'gemini-2.5-flash',
             'gemini-2.5-pro': 'gemini-2.5-pro',
-            'gemini-2.5-pro-code': 'gemini-2.5-pro-code',
-            'gemini-3-pro-preview': 'gemini-3-pro-preview',
-            'gemini-3-pro-preview-code': 'gemini-3-pro-preview-code',
-            // aliases
-            'gemini-3-pro-code': 'gemini-3-pro-preview-code'
+            'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
+            'deepseek-reasoner': 'deepseek-reasoner'
         };
 
-        const selectedModel = MODEL_UI_TO_BACKEND[uiModelValue] || uiModelValue || 'gemini-2.5-flash';
+        const selectedModel = MODEL_UI_TO_BACKEND[uiModelValue] || uiModelValue || 'gemini-3.1-flash-lite';
 
         autoRetryState.requestPayload = {
             model: selectedModel,
@@ -5349,6 +5372,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const modelOptions = customModelDropdown.querySelectorAll('.model-option[data-value]');
         modelOptions.forEach(opt => {
             opt.addEventListener('click', () => {
+                // Skip disabled models
+                if (opt.classList.contains('disabled')) return;
+
                 modelOptions.forEach(o => o.classList.remove('selected'));
                 modelOptions.forEach(o => {
                     const check = o.querySelector('.check-icon');
