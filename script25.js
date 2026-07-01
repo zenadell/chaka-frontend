@@ -3615,12 +3615,15 @@ async function executeApiRequestLoop() {
                 });
                 const data = await ytRes.json();
 
-                if (data.transcript) {
-                    systemResultText = `[SYSTEM_INFO: YouTube Transcript for ${payload}:\n${data.transcript}]`;
+                // /api/tools/video-agent returns { analysis }, not { transcript } —
+                // this was checking the wrong field and always fell into the
+                // catch block below even when the video was watched successfully.
+                if (data.analysis) {
+                    systemResultText = `[SYSTEM_INFO: Video analysis for ${payload}:\n${data.analysis}]`;
                     const pill = botMessageContent.querySelector('.status-pill');
-                    if (pill) pill.textContent = "✅ Transcript extracted.";
+                    if (pill) pill.textContent = "✅ Video analyzed.";
                 } else {
-                    throw new Error("No transcript found.");
+                    throw new Error(data.error || "No analysis returned.");
                 }
             } catch (e) {
                 systemResultText = `[SYSTEM_INFO: YouTube Analysis FAILED. Error: ${e.message}]`;
