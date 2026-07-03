@@ -3,6 +3,15 @@
 
 <head>
   <meta charset="utf-8" />
+  <script>
+    // Canonical-domain guard: if someone lands on the raw Netlify subdomain,
+    // bounce them to the official domain before anything else loads. The
+    // netlify.toml 301 handles this server-side; this is an instant client-side
+    // backstop so users only ever use chaka.jomiez.com.
+    if (location.hostname === 'chaka-ai-v2.netlify.app') {
+      location.replace('https://chaka.jomiez.com' + location.pathname + location.search + location.hash);
+    }
+  </script>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>chaka!</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">

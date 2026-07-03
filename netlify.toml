@@ -1,0 +1,9 @@
+# Force the official domain: any request to the raw Netlify subdomain is
+# permanently redirected (301) to chaka.jomiez.com, preserving the path.
+# force = true makes it apply even for paths that resolve to real files.
+# This covers every entry point (index.html, auth3.html, assets, etc.).
+[[redirects]]
+  from = "https://chaka-ai-v2.netlify.app/*"
+  to = "https://chaka.jomiez.com/:splat"
+  status = 301
+  force = true

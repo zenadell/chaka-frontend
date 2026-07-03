@@ -1484,39 +1484,48 @@ const applyTheme = (themeSetting, event = null) => {
             }, 2000);
 
             // 2. Animate the actual View Transition (the circular wipe)
+            // On phones, the animated brightness/saturate filter is a per-frame
+            // full-screen filter pass over the whole page snapshot — a big extra
+            // GPU cost on top of the mask wipe and the aurora. Drop just the
+            // filter on mobile (the circular wipe itself stays), which keeps the
+            // reveal but removes one expensive full-screen pass.
+            const vtIsMobile = window.matchMedia('(max-width: 820px)').matches;
+            const vtKeyframes = {
+                WebkitMaskImage: [
+                    `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`,
+                    `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`
+                ],
+                WebkitMaskSize: [
+                    `0px 0px`,
+                    `${size}px ${size}px`
+                ],
+                WebkitMaskPosition: [
+                    `${x}px ${y}px`,
+                    `${x - size/2}px ${y - size/2}px`
+                ],
+                WebkitMaskRepeat: ['no-repeat', 'no-repeat'],
+                maskImage: [
+                    `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`,
+                    `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`
+                ],
+                maskSize: [
+                    `0px 0px`,
+                    `${size}px ${size}px`
+                ],
+                maskPosition: [
+                    `${x}px ${y}px`,
+                    `${x - size/2}px ${y - size/2}px`
+                ],
+                maskRepeat: ['no-repeat', 'no-repeat'],
+            };
+            if (!vtIsMobile) {
+                vtKeyframes.filter = [
+                    `brightness(1.5) saturate(1.5)`,
+                    `brightness(1) saturate(1)`
+                ];
+            }
             document.documentElement.animate(
-                {
-                    WebkitMaskImage: [
-                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`,
-                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`
-                    ],
-                    WebkitMaskSize: [
-                        `0px 0px`,
-                        `${size}px ${size}px`
-                    ],
-                    WebkitMaskPosition: [
-                        `${x}px ${y}px`,
-                        `${x - size/2}px ${y - size/2}px`
-                    ],
-                    WebkitMaskRepeat: ['no-repeat', 'no-repeat'],
-                    maskImage: [
-                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`,
-                        `radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%)`
-                    ],
-                    maskSize: [
-                        `0px 0px`,
-                        `${size}px ${size}px`
-                    ],
-                    maskPosition: [
-                        `${x}px ${y}px`,
-                        `${x - size/2}px ${y - size/2}px`
-                    ],
-                    maskRepeat: ['no-repeat', 'no-repeat'],
-                    filter: [
-                        `brightness(1.5) saturate(1.5)`,
-                        `brightness(1) saturate(1)`
-                    ]
-                },
+                vtKeyframes,
                 {
                     duration: 1600, // Matched with Aurora Sweep duration
                     easing: 'cubic-bezier(0.16, 1, 0.3, 1)', // Apple easing
