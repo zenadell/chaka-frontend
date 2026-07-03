@@ -4613,3 +4613,40 @@ button {
   10% { border-color: rgba(255, 197, 147, 0.35); }
   100% { transform: translate3d(-50%, -50%, 0) scale(60); border-color: rgba(255, 197, 147, 0); opacity: 0; }
 }
+
+/* ============================================================================
+   MOBILE PERFORMANCE — keep the aurora/wave animation, kill the jank.
+   On phones (esp. Chrome Android) the theme-switch and first-message auroras
+   hang because each is a 200vmax conic-gradient layer under blur(40px), x2,
+   promoted to a huge GPU texture by will-change. On a 390px-wide phone that's
+   ~1700px layers being blurred every frame — far past the mobile GPU budget,
+   and on the theme switch the full-screen view-transition mask animates at the
+   same time. We keep the exact same keyframes/shape but shrink the promoted
+   layer (~3x smaller texture) and cut the blur radius (blur cost drops hard).
+   The blur already hides fine gradient detail, so the look is preserved.
+   Desktop is untouched. ========================================================= */
+@media (max-width: 820px) {
+  .theme-aurora-wrap,
+  .message-aurora-wrap {
+    filter: blur(18px) saturate(1.3);
+  }
+  .theme-aurora,
+  .theme-aurora--secondary,
+  .message-aurora,
+  .message-aurora--secondary {
+    width: 115vmax;
+    height: 115vmax;
+  }
+}
+
+/* Respect users who turned on "Reduce Motion" at the OS level: skip the heavy
+   overlay entirely (theme still changes / message still sends, just no sweep).
+   Everyone else keeps the full animation. */
+@media (prefers-reduced-motion: reduce) {
+  .theme-aurora-wrap,
+  .message-aurora-wrap,
+  .theme-ring,
+  .message-ring {
+    display: none !important;
+  }
+}
